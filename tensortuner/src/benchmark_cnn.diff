@@ -1,0 +1,29 @@
+diff --git a/scripts/tf_cnn_benchmarks/benchmark_cnn.py b/scripts/tf_cnn_benchmarks/benchmark_cnn.py
+index d8bd8f0..edc4e32 100644
+--- a/scripts/tf_cnn_benchmarks/benchmark_cnn.py
++++ b/scripts/tf_cnn_benchmarks/benchmark_cnn.py
+@@ -1228,9 +1228,11 @@ class BenchmarkCNN(object):
+       images_per_sec = (self.num_batches * self.batch_size / elapsed_time)
+       # Note that we compute the top 1 accuracy and top 5 accuracy for each
+       # batch, which will have a slight performance impact.
++      sec_per_images = 1000 * (1 / images_per_sec)
+       log_fn('-' * 64)
+       log_fn('total images/sec: %.2f' % images_per_sec)
+       log_fn('-' * 64)
++      log_fn('%.2f' % sec_per_images)
+ 
+   def _benchmark_cnn(self):
+     """Run cnn in benchmark mode. Skip the backward pass if forward_only is on.
+@@ -1446,10 +1448,12 @@ class BenchmarkCNN(object):
+         average_wall_time = (elapsed_time * self.num_workers / num_steps
+                              if num_steps > 0 else 0)
+         images_per_sec = num_steps * self.batch_size / elapsed_time
++      sec_per_images = 1000 * (1 / images_per_sec)
+ 
+       log_fn('-' * 64)
+       log_fn('total images/sec: %.2f' % images_per_sec)
+       log_fn('-' * 64)
++      log_fn('%.2f' % sec_per_images)
+       image_producer.done()
+       if is_chief:
+         store_benchmarks({'total_images_per_sec': images_per_sec}, self.params)

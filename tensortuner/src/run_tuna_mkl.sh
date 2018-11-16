@@ -13,8 +13,8 @@ cpu=$3
 #############################
 # Configs
 
-LOG_DIR=/tmp
-TF_CNN_DIR=/nfs/site/home/nhasabni/intel/private-tensorflow-benchmarks/scripts/tf_cnn_benchmarks
+LOG_DIR=${LOG_DIR:-/tmp}
+TF_CNN_DIR=${TF_CNN_DIR:-~/private-tensorflow-benchmarks/scripts/tf_cnn_benchmarks}
 
 #############################
 # Tuna configs

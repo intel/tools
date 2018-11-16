@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e
 
 if [ $# -ne 3 ];
 then

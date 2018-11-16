@@ -1,8 +1,11 @@
 #!/bin/sh
+set -e
 
 if [ $# -ne 3 ];
 then
   echo "run_tuna_mkl.sh <model> <batch_size> <cpu>"
+  # TODO: what can the other options be?
+  echo "<cpu> options: skl"
   exit 0
 fi
 

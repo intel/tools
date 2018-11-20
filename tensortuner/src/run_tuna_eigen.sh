@@ -16,8 +16,9 @@ cpu=$3
 #############################
 # Configs
 
+HOME_DIR=${HOME:-/home/user}
 LOG_DIR=${LOG_DIR:-/tmp}
-TF_CNN_DIR=${TF_CNN_DIR:-~/private-tensorflow-benchmarks/scripts/tf_cnn_benchmarks}
+TF_CNN_DIR=${TF_CNN_DIR:-${HOME_DIR}/private-tensorflow-benchmarks/scripts/tf_cnn_benchmarks}
 
 #############################
 # Tuna configs

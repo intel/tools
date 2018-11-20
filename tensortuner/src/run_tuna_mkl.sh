@@ -79,6 +79,6 @@ ${HARMONY_HOME}/bin/tuna \
 --batch_size=${batch_size} \
 --data_format=NCHW --model=${model} \
 --num_batches=100 \
---num_omp_threads=\%omp \
---num_inter_threads=\%interop \
---num_intra_threads=\%intraop \
+--num_omp_threads=%omp \
+--num_inter_threads=%interop \
+--num_intra_threads=%intraop \

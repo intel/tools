@@ -1,8 +1,11 @@
-#!/bin/sh
+#!/bin/bash
+set -e
 
 if [ $# -ne 3 ];
 then
   echo "run_tuna_mkl.sh <model> <batch_size> <cpu>"
+  echo "<cpu> options: skl"
+  echo "<model> options come from running this: python run_single_node_benchmark.py -h"
   exit 0
 fi
 
@@ -13,8 +16,9 @@ cpu=$3
 #############################
 # Configs
 
-LOG_DIR=/tmp
-TF_CNN_DIR=/nfs/site/home/nhasabni/intel/private-tensorflow-benchmarks/scripts/tf_cnn_benchmarks
+HOME_DIR=${HOME:-/home/user}
+LOG_DIR=${LOG_DIR:-/tmp}
+TF_CNN_DIR=${TF_CNN_DIR:-${HOME_DIR}/private-tensorflow-benchmarks/scripts/tf_cnn_benchmarks}
 
 #############################
 # Tuna configs
@@ -61,9 +65,9 @@ else
 fi
 
 INIT_RADIUS=${CFG_INIT_RADIUS} \
-${HARMONY_HOME}/bin/tuna \
 STRATEGY=${CFG_SEARCH}.so LAYERS=log.so \
 LOG_FILE=${LOG} \
+${HARMONY_HOME}/bin/tuna \
 -q -v -n=200 \
 -i=interop,${inter_op_min},${inter_op_max},${inter_op_step} \
 -i=intraop,${intra_op_min},${intra_op_max},${intra_op_step} \

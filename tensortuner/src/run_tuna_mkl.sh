@@ -64,7 +64,6 @@ else
   LOG=${LOG_DIR}/${cpu}/${CFG_OUTPUT}/${CFG_SEARCH}/mkl/${model}.train.tuna.${CFG_SEARCH}.log
 fi
 
-set -x
 INIT_RADIUS=${CFG_INIT_RADIUS} \
 STRATEGY=${CFG_SEARCH}.so LAYERS=log.so \
 LOG_FILE=${LOG} \

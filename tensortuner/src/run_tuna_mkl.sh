@@ -74,6 +74,7 @@ fi
 if [ "$CHECK_FOR_ERROR" = "True" ];
 then
   echo "Trying underlying script, checking for error..."
+  set -x
   python ${TF_CNN_DIR}/run_single_node_benchmark.py \
   --cpu ${cpu} --mkl=True \
   --forward_only=${CFG_INFERENCE} --single_socket=${CFG_INFERENCE} \
@@ -84,7 +85,6 @@ then
   --num_inter_threads=${inter_op_min} \
   --num_intra_threads=${intra_op_min} \
   --batch_size=${batch_size_min}
-  echo $?
   AA
 fi
 

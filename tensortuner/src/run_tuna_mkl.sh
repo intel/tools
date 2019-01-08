@@ -1,10 +1,9 @@
 #!/bin/bash
 set -e
 
-if [ $# -ne 3 ];
+if [ $# -ne 2 ];
 then
-  # TODO: get rid of batch_size since it's an optimization param now?
-  echo "run_tuna_mkl.sh <model> <batch_size> <cpu>"
+  echo "run_tuna_mkl.sh <model> <cpu>"
   echo "<cpu> options: skl"
   echo "<model> options come from running this: python run_single_node_benchmark.py -h"
   exit 0
@@ -83,5 +82,4 @@ ${HARMONY_HOME}/bin/tuna \
 --num_batches=100 \
 --num_omp_threads=%omp \
 --num_inter_threads=%interop \
---num_intra_threads=%intraop \
-# --batch_size=${batch_size} \
+--num_intra_threads=%intraop

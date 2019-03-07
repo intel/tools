@@ -91,8 +91,28 @@ function resnet50(){
     run_quantize_model_test
 }
 
+function resnet101(){
+    OUTPUT_NODES='resnet_v1_101/SpatialSqueeze'
+
+    # Download the FP32 pre-trained model
+    cd ${OUTPUT}
+    wget https://storage.googleapis.com/intel-optimized-tensorflow/models/resnet101_fp32_pretrained_model.pb
+    FP32_MODEL=${OUTPUT}/resnet101_fp32_pretrained_model.pb
+
+    # to generate the logging graph
+    TRANSFORMS1='mkl_fuse_pad_and_conv'
+
+    # to freeze the dynamic range graph
+    TRANSFORMS2='freeze_requantization_ranges(min_max_log_file="/workspace/tests/calibration_data/resnet101_min_max.log")'
+
+    # to get the fused and optimized final int8 graph
+    TRANSFORMS3='fuse_quantized_conv_and_requantize strip_unused_nodes'
+
+    run_quantize_model_test
+}
+
 # Run all models, when new model is added append model name below
-for model in resnet50
+for model in resnet50 resnet101
 do
     ${model}
 done

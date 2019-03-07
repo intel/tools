@@ -18,9 +18,8 @@
 
 FROM intelaipg/intel-optimized-tensorflow:nightly-latestprs-bdw as binary_build
 
-# Using Last commit from Feb 25th, 2019 as latest master is broken
-# for building quantization tools.
-ARG TF_BUILD_VERSION=cc624f49d27e3a66ad6243b8657756ee9bacb8d1
+# Using 2.0-aplha, otherwise quantization tools bazel build fails.
+ARG TF_BUILD_VERSION=v2.0.0-alpha0
 
 ENV WORKSPACE="/workspace"
 ENV TF_WORKSPACE="${WORKSPACE}/tensorflow"

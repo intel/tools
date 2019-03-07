@@ -61,6 +61,11 @@ class LaunchQuantization(object):
             "-v", "--verbose", help="Print verbose information.",
             dest="verbose", action="store_true")
 
+        arg_parser.add_argument(
+            "-t", "--test",
+            help="Runs integration tests for quantization tools",
+            dest="test", action="store_true")
+
         return arg_parser.parse_known_args(args)
 
     def check_for_link(self, arg_name, path):
@@ -72,7 +77,7 @@ class LaunchQuantization(object):
         if os.path.islink(path) or \
                 (os.path.isfile(path) and os.stat(path).st_nlink > 1):
             raise ValueError("The {} cannot be a link.".format(arg_name))
-        
+
     def validate_args(self, args):
         """validate the args"""
 
@@ -99,11 +104,31 @@ class LaunchQuantization(object):
 
         workspace = "/workspace"
         tf_workspace = workspace + "/tensorflow"
-        mount_quantization = workspace + "/quantization"
 
-        env_vars = ["--env", "{}={}".format("WORKSPACE", workspace),
-                    "--env", "{}={}".format("PRE_TRAINED_MODEL_DIR", args.pre_trained_model_dir),
-                    "--env", "{}={}".format("MOUNT_QUANTIZATION", mount_quantization),
+        if args.test:
+            mount_output = workspace + "/output"
+            mount_test_workspace = workspace + "/tests"
+
+            # output and test envs
+            env_vars =["--env", "{}={}".format("MOUNT_OUTPUT", mount_output),
+                       "--env", "{}={}".format("TEST_WORKSPACE", mount_test_workspace)]
+
+            # output and test volumes
+            test_workspace = os.path.join(
+                os.path.dirname(os.path.realpath(__file__)), "tests")
+            volume_mounts = ["--volume", "{}:{}".format(test_workspace, mount_test_workspace),
+                             "--volume", "{}:{}".format(args.pre_trained_model_dir,
+                                                        mount_output)]
+        else:
+            mount_quantization = workspace + "/quantization"
+
+            env_vars = ["--env", "{}={}".format("PRE_TRAINED_MODEL_DIR", args.pre_trained_model_dir),
+                        "--env", "{}={}".format("MOUNT_QUANTIZATION", mount_quantization)]
+
+            volume_mounts = ["--volume", "{}:{}".format(args.pre_trained_model_dir,
+                                                        mount_quantization)]
+
+        env_vars += ["--env", "{}={}".format("WORKSPACE", workspace),
                     "--env", "{}={}".format("TF_WORKSPACE", tf_workspace)]
 
         # Add proxy to env variables if any set on host
@@ -121,14 +146,14 @@ class LaunchQuantization(object):
                 os.environ.get(environment_proxy_setting)
             ))
 
-        volume_mounts = ["--volume", "{}:{}".format(args.pre_trained_model_dir,
-                                                    mount_quantization)]
-
         docker_run_cmd = ["docker", "run", "-it"]
 
         docker_run_cmd = docker_run_cmd + env_vars + volume_mounts + [
             "--privileged", "-u", "root:root", "-w", tf_workspace,
             args.docker_image, "/bin/bash"]
+
+        if args.test:
+            docker_run_cmd.append(workspace + "/tests/test_quantization.sh")
 
         if args.verbose:
             print("Docker run command:\n{}".format(docker_run_cmd))
@@ -142,6 +167,7 @@ class LaunchQuantization(object):
             p.communicate()
         except KeyboardInterrupt:
             os.killpg(os.getpgid(p.pid), signal.SIGKILL)
+
 
 if __name__ == "__main__":
     util = LaunchQuantization()

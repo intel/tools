@@ -65,4 +65,3 @@ py_test(
         "//third_party/py/numpy",
     ],
 )
-

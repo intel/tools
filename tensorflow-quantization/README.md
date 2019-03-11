@@ -10,9 +10,9 @@ This document describes how to build and use these tools.
 
 ## Build Quantization Tools
 
-* Build an image which contains `transform_graph` and `summarize_graph` tools.
+  Build an image which contains `transform_graph` and `summarize_graph` tools.
   The initial build may take a long time, but subsequent builds will be quicker since layers are cached
-    ```
+   ```
         git clone https://github.com/NervanaSystems/tools.git
         cd tools/tensorflow-quantization
 
@@ -22,110 +22,119 @@ This document describes how to build and use these tools.
         --build-arg http_proxy=${http_proxy} \
         --build-arg https_proxy=${https_proxy} \
         -t quantization:latest -f Dockerfile .
-    ```
+   ```
 
 ## Start quantization process
-* Launch quantization script `launch_quantization.py` by providing args as below,
+  Launch quantization script `launch_quantization.py` by providing args as below,
   this will get user into container environment (`/workspace/tensorflow/`) with quantization tools.
-    - `--docker-image`: Docker image tag from above step (`quantization:latest`)
-    - `--pre-trained-model-dir`: Path to your pre-trained model directory,
-    which will be mounted inside container at `/workspace/quantization`.
-
-
-    ```
+  - `--docker-image`: Docker image tag from above step (`quantization:latest`)
+  - `--pre-trained-model-dir`: Path to your pre-trained model directory,
+     which will be mounted inside container at `/workspace/quantization`.
+  ```
         python launch_quantization.py \
         --docker-image quantization:latest \
         --pre-trained-model-dir {path_to_pre_trained_model_dir}
-    ```
-    Please provide `output_path` relative to `/workspace/quantization`, so that results are written back to local machine.
+  ```
+   Please provide the output graphs locations relative to `/workspace/quantization`, so that results are written back to local machine.
 
-**Example:** Let's perform few steps in quantization process.
-* Convert fp32 frozen graph to *Optimized* fp32 frozen graph.
-  - Set `--out_graph=/workspace/quantization/{name}.pb`
+### Steps for FP32 Optimized Frozen Graph
+In this section, we assume that a trained model topology graph (the model graph_def as .pb or .pbtxt file) and the checkpoint files are available.
+ * The `model graph_def` is used in `step 1` to get the possible **input and output node names** of the graph.
+ * Both of the `model graph_def` and the `checkpoint file` are required in `step2` to get the **model frozen graph**.
+ * The `model frozen graph`, **optimized** (based on the graph structure and operations, etc.) in `step 3`.
 
-    ```
-    root@xxxxxxxxxx:/workspace/tensorflow# bazel-bin/tensorflow/tools/graph_transforms/transform_graph \
-    > --in_graph=/workspace/quantization/ssd_mobilenet_v1_coco_2018_01_28/frozen_inference_graph.pb \
-    > --out_graph=/workspace/quantization/optimized_ssd_mobilenet_fp32_graph.pb \
-    > --inputs='image_tensor' \
-    > --outputs='detection_boxes,detection_scores,num_detections,detection_classes' \
-    > --transforms='strip_unused_nodes remove_nodes(op=Identity, op=CheckNumerics) fold_constants(ignore_errors=true) fold_batch_norms fold_old_batch_norms'
-    ```
-    **Output:**
-    ```
-    2019-03-05 22:27:10.146392: I tensorflow/tools/graph_transforms/transform_graph.cc:317] Applying strip_unused_nodes
-    2019-03-05 22:27:10.243437: I tensorflow/tools/graph_transforms/transform_graph.cc:317] Applying remove_nodes
-    2019-03-05 22:27:10.325350: I tensorflow/tools/graph_transforms/remove_nodes.cc:100] Skipping replacement for detection_boxes
-    2019-03-05 22:27:10.325425: I tensorflow/tools/graph_transforms/remove_nodes.cc:100] Skipping replacement for detection_scores
-    2019-03-05 22:27:10.325464: I tensorflow/tools/graph_transforms/remove_nodes.cc:100] Skipping replacement for num_detections
-    2019-03-05 22:27:10.325508: I tensorflow/tools/graph_transforms/remove_nodes.cc:100] Skipping replacement for detection_classes
-    2019-03-05 22:27:10.407018: I tensorflow/tools/graph_transforms/remove_nodes.cc:100] Skipping replacement for detection_boxes
-    2019-03-05 22:27:10.407092: I tensorflow/tools/graph_transforms/remove_nodes.cc:100] Skipping replacement for detection_scores
-    2019-03-05 22:27:10.407130: I tensorflow/tools/graph_transforms/remove_nodes.cc:100] Skipping replacement for num_detections
-    2019-03-05 22:27:10.407173: I tensorflow/tools/graph_transforms/remove_nodes.cc:100] Skipping replacement for detection_classes
-    2019-03-05 22:27:10.484257: I tensorflow/tools/graph_transforms/remove_nodes.cc:100] Skipping replacement for detection_boxes
-    2019-03-05 22:27:10.484332: I tensorflow/tools/graph_transforms/remove_nodes.cc:100] Skipping replacement for detection_scores
-    2019-03-05 22:27:10.484367: I tensorflow/tools/graph_transforms/remove_nodes.cc:100] Skipping replacement for num_detections
-    2019-03-05 22:27:10.484391: I tensorflow/tools/graph_transforms/remove_nodes.cc:100] Skipping replacement for detection_classes
-    2019-03-05 22:27:10.628321: I tensorflow/tools/graph_transforms/transform_graph.cc:317] Applying fold_constants
-    2019-03-05 22:27:10.873028: I tensorflow/tools/graph_transforms/transform_graph.cc:317] Applying fold_batch_norms
-    2019-03-05 22:27:10.978092: I tensorflow/tools/graph_transforms/transform_graph.cc:317] Applying fold_old_batch_norms
-    ```
-    Check for optimized graph inside container at `/workspace/quantization`,
-    Same should be available on local machine at `--pre-trained-model-dir` path.
+We also assume that you are in the TensorFlow root directory (`/workspace/tensorflow` inside the docker container) to execute the following steps.
 
+1. Find out the possible input and output node names of the graph
     ```
-    root@xxxxxxxxxx:/workspace/tensorflow# ll /workspace/quantization/
-    total 179816
-    drwxr-xr-x 3 11570326 user      4096 Feb 27 20:37 ./
-    drwxr-xr-x 1 root     root      4096 Feb 27 21:56 ../
-    -rw-r--r-- 1 root     root  29075280 Feb 27 22:05 optimized_ssd_mobilenet_fp32_graph.pb
-    drwxr-xr-x 3 11570326 user      4096 Feb  1  2018 ssd_mobilenet_v1_coco_2018_01_28/
+        $ bazel-bin/tensorflow/tools/graph_transforms/summarize_graph \
+         --in_graph=/workspace/quantization/original_graph.pbtxt \
+         --print_structure=false >& model_nodes.txt
     ```
-* Quantize optimized fp32 frozen graph to *int8* dynamic range graph.
-  - Set `--output=/workspace/quantization/{name}.pb`
+    In the model_nodes.txt file, look for the input and output nodes names.
 
+2. Freeze the graph where the checkpoint values are converted into constants in the graph:
+    * The `--input_graph` is the model topology graph_def, and the checkpoint file are required.
+    * The `--output_node_names` are obtained from step 1.
+    * Please note that the `--input_graph` can be in either binary `pb` or text `pbtxt` format,
+    and the `--input_binary` flag will be enabled or disabled accordingly.
     ```
-    root@xxxxxxxxxx:/workspace/tensorflow# python tensorflow/tools/quantization/quantize_graph.py \
-    > --input=/workspace/quantization/optimized_ssd_mobilenet_fp32_graph.pb \
-    > --output=/workspace/quantization/int8_dynamic_range_ssd_mobilenet_graph.pb \
-    > --output_node_names='detection_boxes,detection_scores,num_detections,detection_classes' \
-    > --mode=eightbit \
-    > --intel_cpu_eightbitize=True
+        $ python tensorflow/python/tools/freeze_graph.py \
+         --input_graph /workspace/quantization/original_graph.pbtxt \
+         --output_graph /workspace/quantization/freezed_graph.pb \
+         --input_binary False \
+         --input_checkpoint /workspace/quantization/your_ckpt \
+         --output_node_names OUTPUT_NODE_NAMES
     ```
-    **Output:**
-    ```
-    W0305 22:29:12.134598 140044576818944 deprecation.py:323] From tensorflow/tools/quantization/quantize_graph.py:482: remove_training_nodes (from tensorflow.python.framework.graph_util_impl) is deprecated and will be removed in a future version.
-    Instructions for updating:
-    Use tf.compat.v1.graph_util.remove_training_nodes
-    2019-03-05 22:29:13.706089: I tensorflow/core/platform/cpu_feature_guard.cc:145] This TensorFlow binary is optimized with Intel(R) MKL-DNN to use the following CPU instructions in performance critical operations:  AVX512F
-    To enable them in non-MKL-DNN operations, rebuild TensorFlow with the appropriate compiler flags.
-    2019-03-05 22:29:13.749701: I tensorflow/core/platform/profile_utils/cpu_utils.cc:94] CPU Frequency: 2500000000 Hz
-    2019-03-05 22:29:13.761915: I tensorflow/compiler/xla/service/service.cc:162] XLA service 0x8c306c0 executing computations on platform Host. Devices:
-    2019-03-05 22:29:13.761968: I tensorflow/compiler/xla/service/service.cc:169]   StreamExecutor device (0): <undefined>, <undefined>
-    2019-03-05 22:29:13.771628: I tensorflow/core/common_runtime/process_util.cc:92] Creating new thread pool with default inter op setting: 2. Tune using inter_op_parallelism_threads for best performance.
-    W0305 22:29:13.772703 140044576818944 deprecation.py:323] From tensorflow/tools/quantization/quantize_graph.py:356: quantize_v2 (from tensorflow.python.ops.array_ops) is deprecated and will be removed after 2017-10-25.
-    Instructions for updating:
-    `tf.quantize_v2` is deprecated, please use `tf.quantization.quantize` instead.
-    W0305 22:29:19.609273 140044576818944 deprecation.py:323] From tensorflow/tools/quantization/quantize_graph.py:1556: extract_sub_graph (from tensorflow.python.framework.graph_util_impl) is deprecated and will be removed in a future version.
-    Instructions for updating:
-    Use tf.compat.v1.graph_util.extract_sub_graph
-    W0305 22:29:20.707792 140044576818944 deprecation.py:323] From tensorflow/tools/quantization/quantize_graph.py:1665: __init__ (from tensorflow.python.platform.gfile) is deprecated and will be removed in a future version.
-    Instructions for updating:
-    Use tf.gfile.GFile.
-    ```
-    Check for optimized graph inside container at `/workspace/quantization`,
-    Same should be available on local machine at `--pre-trained-model-dir` path.
 
+3. Optimize the model frozen graph:
+    * Set the `--in_graph` to the path of the model frozen graph (from step 2), 
+    * The `--inputs` and `--outputs` are the graph input and output node names (from step 1).
+    * `--transforms` to be set based on the model topology.
     ```
-    root@xxxxxxxxxx:/workspace/tensorflow# ll /workspace/quantization/
-    total 179816
-    drwxr-xr-x 3 11570326 user      4096 Feb 27 22:19 ./
-    drwxr-xr-x 1 root     root      4096 Feb 27 21:56 ../
-    -rw-r--r-- 1 root     root   8997297 Feb 27 22:19 int8_dynamic_range_ssd_mobilenet_graph.pb
-    -rw-r--r-- 1 root     root  29075280 Feb 27 22:05 optimized_ssd_mobilenet_fp32_graph.pb
-    drwxr-xr-x 3 11570326 user      4096 Feb  1  2018 ssd_mobilenet_v1_coco_2018_01_28/
+        $ bazel-bin/tensorflow/tools/graph_transforms/transform_graph \
+         --in_graph=/workspace/quantization/freezed_graph.pb\
+         --out_graph=/workspace/quantization/optimized_graph.pb \
+         --inputs=INPUT_NODE_NAMES \
+         --outputs=OUTPUT_NODE_NAMES \
+         --transforms='fold_batch_norms'
     ```
-### Follow below instructions as per model
 
-* [Resnet50]
+4. Run inference using the the optimized graph `optimized_graph.pb` and check the model accuracy.
+Check [Intelai/models](https://github.com/IntelAI/models) repository for TensorFlow models inference benchmarks.
+
+### Steps for Int8 Quantization
+Graph quantization to lower precision is needed for faster inference.
+In this section, our objective is to quantize the output [FP32 Optimized Frozen Graph](#steps-for-fp32-optimized-frozen-graph) of the previous section.
+to `Int8` precision.
+
+5. Quantize the optimized graph (from step 3) to lower precision using the output node names (from step 1).
+    ```
+        $ python tensorflow/tools/quantization/quantize_graph.py \
+         --input=/workspace/quantization/optimized_graph.pb \
+         --output=/workspace/quantization/quantized_dynamic_range_graph.pb \
+         --output_node_names=OUTPUT_NODE_NAMES \
+         --mode=eightbit \
+         --intel_cpu_eightbitize=True
+    ```
+
+6. Convert the quantized graph from dynamic to static re-quantization range.
+    The following steps are to freeze the re-quantization range also known as calibration):
+    
+    * Insert the logging op:
+        ```
+        $ bazel-bin/tensorflow/tools/graph_transforms/transform_graph \
+         --in_graph=/workspace/quantization/quantized_dynamic_range_graph.pb \
+         --out_graph=/workspace/quantization/logged_quantized_graph.pb \
+         --transforms='insert_logging(op=RequantizationRange, show_name=true, message="__requant_min_max:")'
+        ```
+    
+    * Generate calibration data: 
+        * Run inference using the graph with logging `logged_quantized_graph.pb` and a small subset of training dataset.
+        * The `batch_size` should be adjusted based on the data subset size.
+        * Store the output data in `min_max_log.txt` file, to be used in the following step.
+          We suggest if you store the `min_max_log.txt` in the same location specified in the [start quantization process](#start-quantization-process) section,
+          which will be mounted inside the container to `/workspace/quantization`.
+    
+    * Run the original quantized graph (from step 5) to replace the `RequantizationRangeOp` with constants.
+        ```
+        $ bazel-bin/tensorflow/tools/graph_transforms/transform_graph \
+        --in_graph=/workspace/quantizationquantized_dynamic_range_graph.pb \
+        --out_graph=/workspace/quantization/freezed_range_graph.pb \
+        --transforms='freeze_requantization_ranges(min_max_log_file="/workspace/quantization/min_max_log.txt")'
+        ```
+
+7. Optimize the quantized graph if needed:
+    * Repeat step 3 with the quantized `Int8` graph (from step 6) and a suitable `--transforms` option.
+    
+ 
+Finally, verify the quantized model performance:
+ * Run inference using the final quantized graph and calculate the model accuracy.
+ * Typically, the accuracy target is the optimized FP32 model accuracy values.
+ * The quantized `Int8` graph accuracy should not drop more than ~0.5-1%.
+    
+ Check [Intelai/models](https://github.com/IntelAI/models) repository for TensorFlow models inference benchmarks with different precisions.
+
+### Examples
+
+* [ResNet50]

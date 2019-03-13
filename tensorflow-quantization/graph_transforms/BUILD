@@ -100,6 +100,7 @@ cc_library(
         "freeze_requantization_ranges.cc",
         "fuse_convolutions.cc",
         "fuse_quantized_convolution.cc",
+	"fuse_quantized_matmul.cc",
         "fold_convolutionwithbias_mul.cc",
         "insert_logging.cc",
         "mkl_fuse_pad_and_convolution.cc",

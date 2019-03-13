@@ -104,8 +104,14 @@ Status FuseQuantizedConvolutionAndRequantize(
           const NodeDef *in_requantize = node_map[node_map[
               quantized_conv2D_node.input(n_input)]->input(0)];
           const NodeDef *summand_node = node_map[quantized_conv2D_node.input(n_input)];
-          bool quantized_op = str_util::StrContains(summand_node->op(), "Quantized");
-          if (quantized_op) {
+          bool quantized_summand = str_util::StrContains(in_requantize->op(), "Quantized");
+          // If the summand is not quantized, we need to quantize it since the
+          // convolution kernel assumes that the summand is always quanitzed.
+          if (!quantized_summand &&
+              !is_perchannel &&
+              in_requantize->op() != "Requantize" &&
+              in_requantize->op() != "QuantizeV2") {
+            // Quantizing the summand.
             // Add some common constants we need for reshaping inputs.
             NodeDef reshape_dims;
             reshape_dims.set_op("Const");

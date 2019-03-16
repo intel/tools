@@ -97,6 +97,7 @@ flags.DEFINE_boolean(
     "intel_cpu_eightbitize", False,
     "If true eightbitized graph will include fused quantized"
     "nodes in the output_graph for Intel CPU.")
+flags.DEFINE_string("model_name", "", """Include model specific optimizations.""")
 
 
 def print_input_nodes(current_node, nodes_map, indent, already_visited):
@@ -411,6 +412,7 @@ class GraphRewriter(object):
         self.output_graph = None
         self.mode = mode
         self.intel_cpu_eightbitize = intel_cpu_eightbitize
+        self.conv_count = 0 
         self.final_node_renames = {}
         self.quantized_node_dict = {}
         if quantized_input_range:
@@ -850,9 +852,16 @@ class GraphRewriter(object):
         fuse_with_conv = (False, False, False)
 
         if current_node.op == "Conv2D":
-            should_quantize_conv = self.intel_cpu_find_relu_recursively(current_node)
+            if FLAGS.model_name not in ["FasterRCNN"]:
+                should_quantize_conv = self.intel_cpu_find_relu_recursively(current_node)
+            else:
+                if self.conv_count in [39]:
+                    should_quantize_conv = False
+                else :
+                    should_quantize_conv = True
+            self.conv_count = self.conv_count + 1
         if current_node.op == "ConcatV2":
-            should_quantize_concat = not ('map/while' in current_node.name)
+            should_quantize_concat = FLAGS.model_name not in ["FasterRCNN"] and not ('map/while' in current_node.name)
             # should_quantize_concat = self.intel_cpu_find_switch_input_any(current_node)
 
         inputs = list(enumerate(current_node.input))

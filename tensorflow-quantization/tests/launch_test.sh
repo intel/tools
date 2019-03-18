@@ -43,4 +43,4 @@ python launch_quantization.py \
 --test
 
 # clean up the output directory after the test is successfully done.
-rm -rf ${OUTPUT}
+sudo rm -rf ${OUTPUT}

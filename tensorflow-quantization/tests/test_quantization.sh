@@ -41,7 +41,8 @@ function run_quantize_model_test(){
     --output=${OUTPUT}/${model}_int8_dynamic_range_graph.pb \
     --output_node_names=${OUTPUT_NODES} \
     --mode=eightbit \
-    --intel_cpu_eightbitize=True
+    --intel_cpu_eightbitize=True \
+    --model_name=${MODEL_NAME}
 
     OUTPUT_GRAPH=${OUTPUT}/${model}_int8_dynamic_range_graph.pb test_ouput_graph
 
@@ -103,7 +104,40 @@ function resnet101(){
     TRANSFORMS1='mkl_fuse_pad_and_conv'
 
     # to freeze the dynamic range graph
-    TRANSFORMS2='freeze_requantization_ranges(min_max_log_file="/workspace/tests/calibration_data/resnet101_min_max.log")'
+    TRANSFORMS2='freeze_requantization_ranges(min_max_log_file="/workspace/tests/calibration_data/resnet101_min_max_log.txt")'
+
+    # to get the fused and optimized final int8 graph
+    TRANSFORMS3='fuse_quantized_conv_and_requantize strip_unused_nodes'
+
+    run_quantize_model_test
+}
+
+function faster_rcnn(){
+    OUTPUT_NODES='detection_boxes,detection_scores,num_detections,detection_classes'
+
+    # Download the FP32 pre-trained model
+    cd ${OUTPUT}
+    wget https://storage.googleapis.com/intel-optimized-tensorflow/models/faster_rcnn_resnet50_fp32_coco_pretrained_model.tar.gz
+    tar -xzvf faster_rcnn_resnet50_fp32_coco_pretrained_model.tar.gz
+
+    cd ${TF_WORKSPACE}
+
+    # optimize fp32 frozen graph
+    bazel-bin/tensorflow/tools/graph_transforms/transform_graph \
+    --in_graph=${OUTPUT}/faster_rcnn_resnet50_fp32_coco/frozen_inference_graph.pb \
+    --out_graph=${OUTPUT}/optimized_faster_rcnn_fp32_graph.pb \
+    --inputs='image_tensor' \
+    --outputs='detection_boxes,detection_scores,num_detections,detection_classes' \
+    --transforms='strip_unused_nodes remove_nodes(op=Identity, op=CheckNumerics) fold_constants(ignore_errors=true) fold_batch_norms fold_old_batch_norms'
+
+    MODEL_NAME='FasterRCNN'
+    FP32_MODEL=${OUTPUT}/optimized_faster_rcnn_fp32_graph.pb
+
+    # to generate the logging graph
+    TRANSFORMS1='insert_logging(op=RequantizationRange, show_name=true, message="__requant_min_max:")'
+
+    # to freeze the dynamic range graph
+    TRANSFORMS2='freeze_requantization_ranges(min_max_log_file="/workspace/tests/calibration_data/faster_rcnn_min_max_log.txt")'
 
     # to get the fused and optimized final int8 graph
     TRANSFORMS3='fuse_quantized_conv_and_requantize strip_unused_nodes'
@@ -112,7 +146,7 @@ function resnet101(){
 }
 
 # Run all models, when new model is added append model name below
-for model in resnet50 resnet101
+for model in resnet50 resnet101 faster_rcnn
 do
     ${model}
 done

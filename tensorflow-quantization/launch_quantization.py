@@ -122,13 +122,13 @@ class LaunchQuantization(object):
         else:
             mount_quantization = workspace + "/quantization"
 
-            env_vars = ["--env", "{}={}".format("PRE_TRAINED_MODEL_DIR", args.pre_trained_model_dir),
-                        "--env", "{}={}".format("MOUNT_QUANTIZATION", mount_quantization)]
+            env_vars = ["--env", "{}={}".format("MOUNT_QUANTIZATION", mount_quantization)]
 
             volume_mounts = ["--volume", "{}:{}".format(args.pre_trained_model_dir,
                                                         mount_quantization)]
 
-        env_vars += ["--env", "{}={}".format("WORKSPACE", workspace),
+        env_vars += ["--env", "{}={}".format("PRE_TRAINED_MODEL_DIR", args.pre_trained_model_dir),
+                     "--env", "{}={}".format("WORKSPACE", workspace),
                     "--env", "{}={}".format("TF_WORKSPACE", tf_workspace)]
 
         # Add proxy to env variables if any set on host

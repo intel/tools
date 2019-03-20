@@ -35,7 +35,7 @@ from tensorflow.python.framework import ops as ops_lib
 from tensorflow.python.platform import flags as flags_lib
 from tensorflow.python.platform import test
 from tensorflow.python.platform import tf_logging
-from tensorflow.tools.quantization import quantize_graph
+import quantize_graph
 
 flags = flags_lib
 FLAGS = flags.FLAGS
@@ -50,7 +50,7 @@ def run_graph_def(graph_def, input_map, outputs):
     return results
 
 
-def test_mat_mul(m, n, k, a, b):
+def mat_mul_test(m, n, k, a, b):
     """Tests a MatMul replacement."""
     a_constant_name = "a_constant"
     b_constant_name = "b_constant"
@@ -70,10 +70,10 @@ def test_mat_mul(m, n, k, a, b):
     quantize_graph.set_attr_bool(mat_mul_node, "transpose_b", False)
     float_graph_def.node.extend([mat_mul_node])
 
-    test_graph(float_graph_def, {}, [mat_mul_name])
+    graph_test(float_graph_def, {}, [mat_mul_name])
 
 
-def test_conv(depth, image_width, image_height, image_batch_count, filter_size,
+def conv_test(depth, image_width, image_height, image_batch_count, filter_size,
               filter_count, stride, padding, input_values, filter_values):
     """Tests a Conv replacement."""
     input_constant_name = "input_constant"
@@ -100,7 +100,7 @@ def test_conv(depth, image_width, image_height, image_batch_count, filter_size,
     quantize_graph.set_attr_string(conv_node, "padding", padding)
     float_graph_def.node.extend([conv_node])
 
-    test_graph(float_graph_def, {}, [conv_name])
+    graph_test(float_graph_def, {}, [conv_name])
 
 
 def are_tensors_near(a, b, tolerance):
@@ -159,7 +159,7 @@ def get_top_value(input_values):
     return max_index, max_value
 
 
-def test_graph(float_graph_def, input_map, output_names, log_graph=False):
+def graph_test(float_graph_def, input_map, output_names, log_graph=False):
     """Runs the float graph through the rewriter and tests the results."""
     float_results = run_graph_def(
         float_graph_def, input_map,
@@ -209,26 +209,26 @@ class QuantizeGraphTest(test.TestCase):
 
     def test_odd_padding_problem(self):
         """Tests one error case we ran into in a real graph."""
-        test_conv(1, 4, 4, 1, 3, 1, 2, b"SAME",
+        conv_test(1, 4, 4, 1, 3, 1, 2, b"SAME",
                   [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
                   [1, 2, 3, 4, 5, 6, 7, 8, 9])
 
     def test_mat_mul_tiny(self):
         # These tests are added to test the generate case where
         # min(matrix) == max(matrix), which used to cause problems.
-        test_mat_mul(1, 1, 1, [2], [3])
-        test_mat_mul(1, 2, 1, [1], [2, 3])
-        test_mat_mul(1, 1, 2, [1, 1], [1, 1])
-        test_mat_mul(1, 1, 2, [0, 0], [1, 1])
+        mat_mul_test(1, 1, 1, [2], [3])
+        mat_mul_test(1, 2, 1, [1], [2, 3])
+        mat_mul_test(1, 1, 2, [1, 1], [1, 1])
+        mat_mul_test(1, 1, 2, [0, 0], [1, 1])
         # The general case.
-        test_mat_mul(1, 1, 2, [1, 2], [1, 2])
+        mat_mul_test(1, 1, 2, [1, 2], [1, 2])
 
     def test_mat_mul_small(self):
-        test_mat_mul(2, 4, 3, [1, 2, 3, 4, 5, 6],
+        mat_mul_test(2, 4, 3, [1, 2, 3, 4, 5, 6],
                      [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18])
 
     def test_conv(self):
-        test_conv(1, 4, 3, 1, 3, 1, 1, b"SAME",
+        conv_test(1, 4, 3, 1, 3, 1, 1, b"SAME",
                   [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
                   [1, 4, 7, 2, 5, 8, 3, 6, 9])
 
@@ -271,7 +271,7 @@ class QuantizeGraphTest(test.TestCase):
         ])
 
         # Test the graph
-        test_graph(g, {}, ["matmul_2"])
+        graph_test(g, {}, ["matmul_2"])
 
         # Verify there is only one Quantize and one Requantize op.
         eightbit_rewriter = quantize_graph.GraphRewriter(
@@ -331,7 +331,7 @@ class QuantizeGraphTest(test.TestCase):
 
         g = graph_pb2.GraphDef()
         g.node.extend([concat_dim, a, b, concat])
-        test_graph(g, {}, [concat.name])
+        graph_test(g, {}, [concat.name])
 
     def test_non_float_reshape(self):
         a = quantize_graph.create_constant_node(
@@ -347,7 +347,7 @@ class QuantizeGraphTest(test.TestCase):
 
         g = graph_pb2.GraphDef()
         g.node.extend([a, shape, reshape])
-        test_graph(g, {}, [reshape.name])
+        graph_test(g, {}, [reshape.name])
 
     def test_concat(self):
         shape_constant_name = "shape_constant"
@@ -378,7 +378,7 @@ class QuantizeGraphTest(test.TestCase):
         quantize_graph.set_attr_dtype(concat_node, "T", dtypes.float32)
         float_graph_def.node.extend([concat_node])
 
-        test_graph(float_graph_def, {}, [concat_name])
+        graph_test(float_graph_def, {}, [concat_name])
 
         # Verify the concat is quantized.
         eightbit_rewriter = quantize_graph.GraphRewriter(
@@ -420,7 +420,7 @@ class QuantizeGraphTest(test.TestCase):
         quantize_graph.set_attr_dtype(concat_node, "T", dtypes.float32)
         float_graph_def.node.extend([concat_node])
 
-        test_graph(float_graph_def, {}, [concat_name])
+        graph_test(float_graph_def, {}, [concat_name])
 
     def test_node_name_from_input(self):
         self.assertEqual("SomeName",
@@ -451,7 +451,7 @@ class QuantizeGraphTest(test.TestCase):
         quantize_graph.set_attr_dtype(mul_node, "T", dtypes.float32)
         float_graph_def.node.extend([mul_node])
 
-        test_graph(float_graph_def, {}, [mul_name])
+        graph_test(float_graph_def, {}, [mul_name])
 
     def test_keep_control_edges(self):
         no_op_name = "no_op"
@@ -551,7 +551,7 @@ class QuantizeGraphTest(test.TestCase):
                                      False)
         quantize_graph.set_attr_float(batch_norm_node, "variance_epsilon", 0.001)
         float_graph_def.node.extend([batch_norm_node])
-        test_graph(float_graph_def, {}, [batch_norm_name])
+        graph_test(float_graph_def, {}, [batch_norm_name])
 
     def test_max_pool(self):
         input_constant_name = "input_constant"
@@ -569,7 +569,7 @@ class QuantizeGraphTest(test.TestCase):
         quantize_graph.set_attr_int_list(max_pool_node, "strides", [1, 1, 1, 1])
         quantize_graph.set_attr_string(max_pool_node, "padding", b"SAME")
         float_graph_def.node.extend([max_pool_node])
-        test_graph(float_graph_def, {}, [max_pool_name])
+        graph_test(float_graph_def, {}, [max_pool_name])
 
     def test_avg_pool(self):
         input_constant_name = "input_constant"
@@ -588,7 +588,7 @@ class QuantizeGraphTest(test.TestCase):
         quantize_graph.set_attr_int_list(avg_pool_node, "strides", [1, 1, 1, 1])
         quantize_graph.set_attr_string(avg_pool_node, "padding", b"SAME")
         float_graph_def.node.extend([avg_pool_node])
-        test_graph(float_graph_def, {}, [avg_pool_name])
+        graph_test(float_graph_def, {}, [avg_pool_name])
 
     def test_relu(self):
         input_constant_name = "input_constant"
@@ -604,7 +604,7 @@ class QuantizeGraphTest(test.TestCase):
                                                [input_constant_name])
         quantize_graph.set_attr_dtype(relu_node, "T", dtypes.float32)
         float_graph_def.node.extend([relu_node])
-        test_graph(float_graph_def, {}, [relu_name])
+        graph_test(float_graph_def, {}, [relu_name])
 
     def test_relu_w_fake_quant_w_min_max_vars(self):
         input_node = quantize_graph.create_constant_node(
@@ -626,7 +626,7 @@ class QuantizeGraphTest(test.TestCase):
         float_graph_def = graph_pb2.GraphDef()
         float_graph_def.node.extend(
             [input_node, relu_node, min_node, max_node, fake_quant_node])
-        test_graph(float_graph_def, {}, [fake_quant_node.name], log_graph=True)
+        graph_test(float_graph_def, {}, [fake_quant_node.name], log_graph=True)
 
         # Verify there is only one Quantize and one Requantize op.
         eightbit_rewriter = quantize_graph.GraphRewriter(
@@ -654,7 +654,7 @@ class QuantizeGraphTest(test.TestCase):
                                                 [input_constant_name])
         quantize_graph.set_attr_dtype(relu6_node, "T", dtypes.float32)
         float_graph_def.node.extend([relu6_node])
-        test_graph(float_graph_def, {}, [relu6_name])
+        graph_test(float_graph_def, {}, [relu6_name])
 
     def test_bias_add(self):
         input_constant_name = "input_constant"
@@ -677,7 +677,7 @@ class QuantizeGraphTest(test.TestCase):
             "BiasAdd", bias_add_name, [input_constant_name, offset_constant_name])
         quantize_graph.set_attr_dtype(bias_add_node, "T", dtypes.float32)
         float_graph_def.node.extend([bias_add_node])
-        test_graph(float_graph_def, {}, [bias_add_name])
+        graph_test(float_graph_def, {}, [bias_add_name])
 
     def test_quantized_input_range_errors(self):
         with self.assertRaises(ValueError):
@@ -805,7 +805,7 @@ class QuantizeGraphTest(test.TestCase):
             input_node, offset_node, bias_add_node, min_node, max_node,
             fake_quant_node
         ])
-        test_graph(float_graph_def, {}, [fake_quant_node.name], log_graph=True)
+        graph_test(float_graph_def, {}, [fake_quant_node.name], log_graph=True)
 
         # Verify there is only one Quantize and one Requantize op.
         # Pass in fallback_quantization_range, although it will have no effect
@@ -843,7 +843,7 @@ class QuantizeGraphTest(test.TestCase):
 
         float_graph_def = graph_pb2.GraphDef()
         float_graph_def.node.extend([input_node, offset_node, bias_add_node])
-        test_graph(float_graph_def, {}, [bias_add_node.name], log_graph=True)
+        graph_test(float_graph_def, {}, [bias_add_node.name], log_graph=True)
 
         # Verify there is only one Quantize, one Requantize op, and no
         # RequantizationRange op.

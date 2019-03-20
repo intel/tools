@@ -37,38 +37,36 @@ flags.DEFINE_boolean("input_binary", True,
 flags.DEFINE_boolean("output_binary", True,
                      """Output graph binary or text.""")
 
-
 def main(unused_args):
-    if not gfile.Exists(FLAGS.input):
-        print("Input graph file '" + FLAGS.input + "' does not exist!")
-        return -1
+  if not gfile.Exists(FLAGS.input):
+    print("Input graph file '" + FLAGS.input + "' does not exist!")
+    return -1
 
-    tf_graph = graph_pb2.GraphDef()
-    # TODO(intel-tf): Enabling user to work with both binary and text format.
-    mode = "rb" if FLAGS.input_binary else "r"
-    with gfile.Open(FLAGS.input, mode) as f:
-        data = f.read()
-        if FLAGS.input_binary:
-            tf_graph.ParseFromString(data)
-        else:
-            text_format.Merge(data, tf_graph)
-
-    for node in tf_graph.node:
-        new_input = []
-        for i in node.input:
-            if i[0] == '^':
-                node.input.remove(i)
-
-    # TODO(intel-tf): Enabling user to work with both binary and text format.
-    mode = "wb" if FLAGS.output_binary else "w"
-    f = gfile.FastGFile(FLAGS.output, mode)
-    if FLAGS.output_binary:
-        f.write(tf_graph.SerializeToString())
+  tf_graph = graph_pb2.GraphDef()
+  # TODO(intel-tf): Enabling user to work with both binary and text format.
+  mode = "rb" if FLAGS.input_binary else "r"
+  with gfile.Open(FLAGS.input, mode) as f:
+    data = f.read()
+    if FLAGS.input_binary:
+      tf_graph.ParseFromString(data)
     else:
-        f.write(str(tf_graph))
+      text_format.Merge(data, tf_graph)
 
-    return 0
+  for node in tf_graph.node:
+      new_input = []
+      for i in node.input:
+        if i[0] == '^':
+          node.input.remove(i)
 
+  # TODO(intel-tf): Enabling user to work with both binary and text format.
+  mode = "wb" if FLAGS.output_binary else "w"
+  f = gfile.FastGFile(FLAGS.output, mode)
+  if FLAGS.output_binary:
+    f.write(tf_graph.SerializeToString())
+  else:
+    f.write(str(tf_graph))
+
+  return 0
 
 if __name__ == "__main__":
-    app.run()
+  app.run()

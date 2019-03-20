@@ -28,7 +28,7 @@ from mock import MagicMock
 sys.path.append(os.path.join(os.path.dirname(__file__), 'test_utils'))
 
 MODULES = ('quantization',)
-MODULES_REPLACE = ('tests.unit', 'quantization')
+MODULES_REPLACE = ('tests.unit.', '')
 
 
 def patch_setattr(module_names, module_replace, monkeypatch, path, m):

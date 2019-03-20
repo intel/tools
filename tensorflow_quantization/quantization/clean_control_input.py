@@ -29,14 +29,6 @@ from google.protobuf import text_format
 flags = flags_lib
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string("input", "", """TensorFlow 'GraphDef' file to load.""")
-flags.DEFINE_string("output", "", """File to save the output graph to.""")
-
-flags.DEFINE_boolean("input_binary", True,
-                     """Input graph binary or text.""")
-flags.DEFINE_boolean("output_binary", True,
-                     """Output graph binary or text.""")
-
 
 def main(unused_args):
     if not gfile.Exists(FLAGS.input):

@@ -34,36 +34,34 @@ from tensorflow.python.platform import gfile
 FLAGS = flags.FLAGS
 
 flags.DEFINE_string("graph", "", """TensorFlow 'GraphDef' file to load.""")
-flags.DEFINE_bool("input_binary", True,
-                  """Whether the input files are in binary format.""")
 flags.DEFINE_string("dot_output", "", """Where to write the DOT output.""")
 
 
 def main(unused_args):
-  if not gfile.Exists(FLAGS.graph):
-    print("Input graph file '" + FLAGS.graph + "' does not exist!")
-    return -1
+    if not gfile.Exists(FLAGS.graph):
+        print("Input graph file '" + FLAGS.graph + "' does not exist!")
+        return -1
 
-  graph = graph_pb2.GraphDef()
-  if FLAGS.input_binary:
-    with open(FLAGS.graph, "rb") as f:  
-      graph.ParseFromString(f.read())
-  else:
-    with open(FLAGS.graph, "r") as f:  
-      text_format.Merge(f.read(), graph)
+    graph = graph_pb2.GraphDef()
+    if FLAGS.input_binary:
+        with open(FLAGS.graph, "rb") as f:
+            graph.ParseFromString(f.read())
+    else:
+        with open(FLAGS.graph, "r") as f:
+            text_format.Merge(f.read(), graph)
 
-  with open(FLAGS.dot_output, "w") as f:
-    print("digraph graphname {", file=f)
-    for node in graph.node:
-      output_name = node.name
-      print("  \"" + output_name + "\" [label=\"" + node.op + "\"];", file=f)
-      for input_full_name in node.input:
-        parts = input_full_name.split(":")
-        input_name = re.sub(r"^\^", "", parts[0])
-        print("  \"" + input_name + "\" -> \"" + output_name + "\";", file=f)
-    print("}", file=f)
-  print("Created DOT file '" + FLAGS.dot_output + "'.")
+    with open(FLAGS.dot_output, "w") as f:
+        print("digraph graphname {", file=f)
+        for node in graph.node:
+            output_name = node.name
+            print("  \"" + output_name + "\" [label=\"" + node.op + "\"];", file=f)
+            for input_full_name in node.input:
+                parts = input_full_name.split(":")
+                input_name = re.sub(r"^\^", "", parts[0])
+                print("  \"" + input_name + "\" -> \"" + output_name + "\";", file=f)
+        print("}", file=f)
+    print("Created DOT file '" + FLAGS.dot_output + "'.")
 
 
 if __name__ == "__main__":
-  app.run()
+    app.run()

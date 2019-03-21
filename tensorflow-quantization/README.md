@@ -112,7 +112,8 @@ to `Int8` precision.
     * Generate calibration data: 
         * Run inference using the graph with logging `logged_quantized_graph.pb` and a small subset of training dataset.
         * The `batch_size` should be adjusted based on the data subset size.
-        * Store the output data in `min_max_log.txt` file, to be used in the following step.
+        * The following instructions will be referring to the log file output from your inference run as the `min_max_log.txt` file.
+          For an example of the output file might look like, see the [calibration_data](/tensorflow-quantization/tests/calibration_data) test files.
           We suggest if you store the `min_max_log.txt` in the same location specified in the [start quantization process](#start-quantization-process) section,
           which will be mounted inside the container to `/workspace/quantization`.
     

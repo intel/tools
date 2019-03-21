@@ -23,8 +23,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import pytest
 import sys
 import numpy as np
+from mock import MagicMock
 
 from tensorflow.core.framework import graph_pb2
 from tensorflow.python.client import session
@@ -37,8 +39,28 @@ from tensorflow.python.platform import test
 from tensorflow.python.platform import tf_logging
 from quantization import quantize_graph
 
+from test_utils.io import catch_stdout
+
 flags = flags_lib
 FLAGS = flags.FLAGS
+
+# unable to return patch obj directly to class functions
+# so setting patch obj on pytest for future access as needed
+
+
+@pytest.fixture()
+def mock_tensor_util(patch):
+    return patch("tensor_util")
+
+
+@pytest.fixture()
+def mock_node_def_pb2(patch):
+    pytest.mock_node_def_pb2 = patch("node_def_pb2.NodeDef")
+
+
+@pytest.fixture()
+def mock_constant_op(patch):
+    return patch("constant_op")
 
 
 def run_graph_def(graph_def, input_map, outputs):
@@ -962,6 +984,27 @@ class QuantizeGraphTest(test.TestCase):
         output = rewriter.remove_redundant_quantization(graph_def)
         stripped_output = graph_util.extract_sub_graph(output, [mat_mul_name])
         self.assertProtoEquals(expected_output, stripped_output)
+
+    def test_print_input_nodes(self):
+        with catch_stdout() as output:
+            quantize_graph.print_input_nodes(MagicMock(op="op", name="foo", input=['op', 'opp']), {
+                                             'op': 'foo', 'opp': 'bar'}, 5, ["op", "op2"])
+            output = output.getvalue()
+        assert "     5: op" in output
+
+    @pytest.mark.usefixtures("mock_tensor_util")
+    def test_intel_cpu_quantize_weight_eightbit(self):
+        # TODO: assert something
+        # pytest.set_trace()
+        quantize_graph.intel_cpu_quantize_weight_eightbit(MagicMock())
+
+    @pytest.mark.usefixtures("mock_node_def_pb2", "mock_constant_op")
+    def test_round_nodes_recursively(self):
+        rewriter = quantize_graph.GraphRewriter(MagicMock(), 'round', None)
+        rewriter.already_visited = {}
+        rewriter.output_graph = MagicMock()
+        rewriter.round_nodes_recursively(MagicMock(name='bar', op="Conv2D"))
+        assert pytest.mock_node_def_pb2.call_count == 2
 
 
 if __name__ == "__main__":

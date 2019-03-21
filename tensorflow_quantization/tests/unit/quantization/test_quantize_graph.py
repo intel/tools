@@ -35,7 +35,7 @@ from tensorflow.python.framework import ops as ops_lib
 from tensorflow.python.platform import flags as flags_lib
 from tensorflow.python.platform import test
 from tensorflow.python.platform import tf_logging
-import quantize_graph
+from quantization import quantize_graph
 
 flags = flags_lib
 FLAGS = flags.FLAGS

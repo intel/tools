@@ -1,6 +1,6 @@
 import pytest
 import sys
-from mock import patch
+from mock import MagicMock, patch
 
 from quantization.clean_control_input import main
 from test_utils.io import catch_stdout
@@ -24,6 +24,7 @@ def mock_graph_pb2(patch):
 def test_main(mock_gfile, mock_graph_pb2):
     """Asserts passing in valid input results in return of 0"""
     mock_gfile.Exists.return_value = True
+    mock_graph_pb2.GraphDef.return_value.node = [MagicMock(input=['a']), MagicMock(input=['^', 'b'])]
     assert main(["--flag", "arg"]) == 0
 
 

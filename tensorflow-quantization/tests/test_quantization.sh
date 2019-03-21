@@ -42,9 +42,21 @@ function run_quantize_model_test(){
     --output_node_names=${OUTPUT_NODES} \
     --mode=eightbit \
     --intel_cpu_eightbitize=True \
-    --model_name=${MODEL_NAME}
+    --model_name=${MODEL_NAME} \
+    ${EXTRA_ARG}
 
     OUTPUT_GRAPH=${OUTPUT}/${model}_int8_dynamic_range_graph.pb test_ouput_graph
+
+    if [ ${model}=="rfcn" ]; then
+        # Apply Pad Fusion optimization:
+        bazel-bin/tensorflow/tools/graph_transforms/transform_graph \
+        --in_graph=${OUTPUT}/${model}_int8_dynamic_range_graph.pb \
+        --out_graph=${OUTPUT}/${model}_int8_dynamic_range_graph.pb \
+        --outputs=${OUTPUT_NODES} \
+        --transforms='mkl_fuse_pad_and_conv'
+
+        OUTPUT_GRAPH=${OUTPUT}/${model}_int8_dynamic_range_graph.pb test_ouput_graph
+    fi
 
     # Generate graph with logging
     bazel-bin/tensorflow/tools/graph_transforms/transform_graph \
@@ -70,46 +82,6 @@ function run_quantize_model_test(){
     --transforms="${TRANSFORMS3}"
 
     OUTPUT_GRAPH=${OUTPUT}/${model}_int8_final_fused_graph.pb test_ouput_graph
-}
-
-function resnet50(){
-    OUTPUT_NODES='predict'
-
-    # Download the FP32 pre-trained model
-    cd ${OUTPUT}
-    wget https://storage.googleapis.com/intel-optimized-tensorflow/models/resnet50_fp32_pretrained_model.pb
-    FP32_MODEL=${OUTPUT}/resnet50_fp32_pretrained_model.pb
-
-    # to generate the logging graph
-    TRANSFORMS1='insert_logging(op=RequantizationRange, show_name=true, message="__requant_min_max:")'
-
-    # to freeze the dynamic range graph
-    TRANSFORMS2='freeze_requantization_ranges(min_max_log_file="/workspace/tests/calibration_data/resnet50_min_max_log.txt")'
-
-    # to get the fused and optimized final int8 graph
-    TRANSFORMS3='fuse_quantized_conv_and_requantize strip_unused_nodes'
-
-    run_quantize_model_test
-}
-
-function resnet101(){
-    OUTPUT_NODES='resnet_v1_101/SpatialSqueeze'
-
-    # Download the FP32 pre-trained model
-    cd ${OUTPUT}
-    wget https://storage.googleapis.com/intel-optimized-tensorflow/models/resnet101_fp32_pretrained_model.pb
-    FP32_MODEL=${OUTPUT}/resnet101_fp32_pretrained_model.pb
-
-    # to generate the logging graph
-    TRANSFORMS1='mkl_fuse_pad_and_conv'
-
-    # to freeze the dynamic range graph
-    TRANSFORMS2='freeze_requantization_ranges(min_max_log_file="/workspace/tests/calibration_data/resnet101_min_max_log.txt")'
-
-    # to get the fused and optimized final int8 graph
-    TRANSFORMS3='fuse_quantized_conv_and_requantize strip_unused_nodes'
-
-    run_quantize_model_test
 }
 
 function faster_rcnn(){
@@ -145,8 +117,80 @@ function faster_rcnn(){
     run_quantize_model_test
 }
 
+function rfcn(){
+    OUTPUT_NODES='detection_boxes,detection_scores,num_detections,detection_classes'
+
+    # Download the FP32 pre-trained model
+    cd ${OUTPUT}
+    wget https://storage.googleapis.com/intel-optimized-tensorflow/models/rfcn_resnet101_fp32_coco_pretrained_model.tar.gz
+    tar -xzvf rfcn_resnet101_fp32_coco_pretrained_model.tar.gz
+
+    # Remove the Identity ops from the FP32 frozen graph
+    cd ${TF_WORKSPACE}
+    bazel-bin/tensorflow/tools/graph_transforms/transform_graph \
+    --in_graph=${OUTPUT}/rfcn_resnet101_fp32_coco/frozen_inference_graph.pb \
+    --out_graph=${OUTPUT}/${model}_fp32_graph.pb \
+    --outputs=${OUTPUT_NODES} \
+    --transforms='remove_nodes(op=Identity, op=CheckNumerics) fold_constants(ignore_errors=true)'
+
+    FP32_MODEL=${OUTPUT}/${model}_fp32_graph.pb
+    EXTRA_ARG="--excluded_ops=ConcatV2"
+    MODEL_NAME='R-FCN'
+
+    # to generate the logging graph
+    TRANSFORMS1='insert_logging(op=RequantizationRange, show_name=true, message="__requant_min_max:")'
+
+    # to freeze the dynamic range graph
+    TRANSFORMS2='freeze_requantization_ranges(min_max_log_file="/workspace/tests/calibration_data/rfcn_min_max_log.txt")'
+
+    # to get the fused and optimized final int8 graph
+    TRANSFORMS3='fuse_quantized_conv_and_requantize strip_unused_nodes'
+
+    run_quantize_model_test
+}
+
+function resnet101(){
+    OUTPUT_NODES='resnet_v1_101/SpatialSqueeze'
+
+    # Download the FP32 pre-trained model
+    cd ${OUTPUT}
+    wget https://storage.googleapis.com/intel-optimized-tensorflow/models/resnet101_fp32_pretrained_model.pb
+    FP32_MODEL=${OUTPUT}/resnet101_fp32_pretrained_model.pb
+
+    # to generate the logging graph
+    TRANSFORMS1='mkl_fuse_pad_and_conv'
+
+    # to freeze the dynamic range graph
+    TRANSFORMS2='freeze_requantization_ranges(min_max_log_file="/workspace/tests/calibration_data/resnet101_min_max_log.txt")'
+
+    # to get the fused and optimized final int8 graph
+    TRANSFORMS3='fuse_quantized_conv_and_requantize strip_unused_nodes'
+
+    run_quantize_model_test
+}
+
+function resnet50(){
+    OUTPUT_NODES='predict'
+
+    # Download the FP32 pre-trained model
+    cd ${OUTPUT}
+    wget https://storage.googleapis.com/intel-optimized-tensorflow/models/resnet50_fp32_pretrained_model.pb
+    FP32_MODEL=${OUTPUT}/resnet50_fp32_pretrained_model.pb
+
+    # to generate the logging graph
+    TRANSFORMS1='insert_logging(op=RequantizationRange, show_name=true, message="__requant_min_max:")'
+
+    # to freeze the dynamic range graph
+    TRANSFORMS2='freeze_requantization_ranges(min_max_log_file="/workspace/tests/calibration_data/resnet50_min_max_log.txt")'
+
+    # to get the fused and optimized final int8 graph
+    TRANSFORMS3='fuse_quantized_conv_and_requantize strip_unused_nodes'
+
+    run_quantize_model_test
+}
+
 # Run all models, when new model is added append model name below
-for model in resnet50 resnet101 faster_rcnn
+for model in faster_rcnn rfcn resnet101 resnet50
 do
     ${model}
 done

@@ -973,7 +973,7 @@ class GraphRewriter(object):
         fuse_with_conv = (False, False, False)
         
         if current_node.op == "Conv2D":
-            if FLAGS.model_name not in ["FasterRCNN"]:
+            if FLAGS.model_name not in ["FasterRCNN", "R-FCN"]:
                 should_quantize_conv = self.intel_cpu_find_relu_recursively(current_node)
             else:
                 if self.conv_count in [39]:
@@ -982,7 +982,8 @@ class GraphRewriter(object):
                     should_quantize_conv = True
             self.conv_count = self.conv_count + 1
         if current_node.op == "ConcatV2":
-            should_quantize_concat = FLAGS.model_name not in ["FasterRCNN"] and not ('map/while' in current_node.name) 
+            should_quantize_concat = FLAGS.model_name not in ["FasterRCNN", "R-FCN"] and not ('map/while' in current_node.name)
+
             # should_quantize_concat = self.intel_cpu_find_switch_input_any(current_node)
         """Dont quantize concatv2 incase of Wide and Deep large ds"""    
         if current_node.op == "ConcatV2":

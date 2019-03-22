@@ -70,7 +70,9 @@ We also assume that you are in the TensorFlow root directory (`/workspace/tensor
 3. Optimize the model frozen graph:
     * Set the `--in_graph` to the path of the model frozen graph (from step 2), 
     * The `--inputs` and `--outputs` are the graph input and output node names (from step 1).
-    * `--transforms` to be set based on the model topology.
+    * `--transforms` to be set based on the model topology. See the TensorFlow
+      [Transform Reference](https://github.com/tensorflow/tensorflow/tree/master/tensorflow/tools/graph_transforms#transform-reference)
+      for descriptions of the different `--transforms` options.
     ```
         $ bazel-bin/tensorflow/tools/graph_transforms/transform_graph \
          --in_graph=/workspace/quantization/freezed_graph.pb\
@@ -99,9 +101,10 @@ to `Int8` precision.
     ```
 
 6. Convert the quantized graph from dynamic to static re-quantization range.
-    The following steps are to freeze the re-quantization range also known as calibration):
+   The following steps are to freeze the re-quantization range (also known as calibration):
     
-    * Insert the logging op:
+    * Insert the logging op using the `insert_logging()` transform. The resulting graph (`logged_quantized_graph.pb`) from this step will be
+      used in the next step to generate the min. and max. ranges for the model calibration.
         ```
         $ bazel-bin/tensorflow/tools/graph_transforms/transform_graph \
          --in_graph=/workspace/quantization/quantized_dynamic_range_graph.pb \
@@ -109,14 +112,24 @@ to `Int8` precision.
          --transforms='insert_logging(op=RequantizationRange, show_name=true, message="__requant_min_max:")'
         ```
     
-    * Generate calibration data: 
-        * Run inference using the graph with logging `logged_quantized_graph.pb` and a small subset of training dataset.
+    * Generate calibration data:
+        * Run inference using the `logged_quantized_graph.pb` graph that was generated in the previous step. This can be done using a
+          small subset of the training dataset, since we are just running the graph to get the min and max log output.
         * The `batch_size` should be adjusted based on the data subset size.
-        * Store the output data in `min_max_log.txt` file, to be used in the following step.
-          We suggest if you store the `min_max_log.txt` in the same location specified in the [start quantization process](#start-quantization-process) section,
+        * During the inference run, you should see min and max output in the log that looks something like:
+          ```
+          ;v0/resnet_v10/conv2/conv2d/Conv2D_eightbit_requant_range__print__;__requant_min_max:[-5.75943518][3.43590856]
+          ;v0/resnet_v10/conv1/conv2d/Conv2D_eightbit_requant_range__print__;__requant_min_max:[-3.63552189][5.20797968]
+          ;v0/resnet_v10/conv3/conv2d/Conv2D_eightbit_requant_range__print__;__requant_min_max:[-1.44367445][1.50843954]
+          ...
+          ```
+        * The following instructions will be referring to the log file output from your inference run as the `min_max_log.txt` file.
+          For a full example of the output file might look like, see the [calibration_data](/tensorflow-quantization/tests/calibration_data) test files.
+          We suggest that you store the `min_max_log.txt` in the same location specified in the [start quantization process](#start-quantization-process) section,
           which will be mounted inside the container to `/workspace/quantization`.
     
-    * Run the original quantized graph (from step 5) to replace the `RequantizationRangeOp` with constants.
+    * Replace the `RequantizationRangeOp` in the original quantized graph (from step 5)
+      with the min. and max. constants using the `min_max_log.txt` file.
         ```
         $ bazel-bin/tensorflow/tools/graph_transforms/transform_graph \
         --in_graph=/workspace/quantizationquantized_dynamic_range_graph.pb \

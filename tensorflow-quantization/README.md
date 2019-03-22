@@ -13,7 +13,7 @@ This document describes how to build and use these tools.
   Build an image which contains `transform_graph` and `summarize_graph` tools.
   The initial build may take a long time, but subsequent builds will be quicker since layers are cached
    ```
-        git clone https://github.com/NervanaSystems/tools.git
+        git clone https://github.com/IntelAI/tools.git
         cd tools/tensorflow-quantization
 
         docker build \
@@ -33,14 +33,14 @@ This document describes how to build and use these tools.
   ```
         python launch_quantization.py \
         --docker-image quantization:latest \
-        --pre-trained-model-dir {path_to_pre_trained_model_dir}
+        --pre-trained-model-dir /home/<user>/<pre_trained_model_dir>
   ```
    Please provide the output graphs locations relative to `/workspace/quantization`, so that results are written back to local machine.
 
 ### Steps for FP32 Optimized Frozen Graph
 In this section, we assume that a trained model topology graph (the model graph_def as .pb or .pbtxt file) and the checkpoint files are available.
  * The `model graph_def` is used in `step 1` to get the possible **input and output node names** of the graph.
- * Both of the `model graph_def` and the `checkpoint file` are required in `step2` to get the **model frozen graph**.
+ * Both of the `model graph_def` and the `checkpoint file` are required in `step 2` to get the **model frozen graph**.
  * The `model frozen graph`, **optimized** (based on the graph structure and operations, etc.) in `step 3`.
 
 We also assume that you are in the TensorFlow root directory (`/workspace/tensorflow` inside the docker container) to execute the following steps.
@@ -48,7 +48,7 @@ We also assume that you are in the TensorFlow root directory (`/workspace/tensor
 1. Find out the possible input and output node names of the graph
     ```
         $ bazel-bin/tensorflow/tools/graph_transforms/summarize_graph \
-         --in_graph=/workspace/quantization/original_graph.pbtxt \
+         --in_graph=/workspace/quantization/<graph_def_file> \
          --print_structure=false >& model_nodes.txt
     ```
     In the model_nodes.txt file, look for the input and output nodes names.
@@ -60,10 +60,10 @@ We also assume that you are in the TensorFlow root directory (`/workspace/tensor
     and the `--input_binary` flag will be enabled or disabled accordingly.
     ```
         $ python tensorflow/python/tools/freeze_graph.py \
-         --input_graph /workspace/quantization/original_graph.pbtxt \
+         --input_graph /workspace/quantization/<graph_def_file> \
          --output_graph /workspace/quantization/freezed_graph.pb \
          --input_binary False \
-         --input_checkpoint /workspace/quantization/your_ckpt \
+         --input_checkpoint /workspace/quantization/<checkpoint_file> \
          --output_node_names OUTPUT_NODE_NAMES
     ```
 
@@ -150,4 +150,4 @@ Finally, verify the quantized model performance:
 
 ### Examples
 
-* [ResNet50]
+* [ResNet50](https://github.com/IntelAI/models/blob/master/docs/image_recognition/quantization/Tutorial.md)

@@ -105,7 +105,6 @@ to `Int8` precision.
     
     * Insert the logging op using the `insert_logging()` transform. The resulting graph (`logged_quantized_graph.pb`) from this step will be
       used in the next step to generate the min. and max. ranges for the model calibration.
-      numbers when it's run.
         ```
         $ bazel-bin/tensorflow/tools/graph_transforms/transform_graph \
          --in_graph=/workspace/quantization/quantized_dynamic_range_graph.pb \
@@ -129,8 +128,8 @@ to `Int8` precision.
           We suggest that you store the `min_max_log.txt` in the same location specified in the [start quantization process](#start-quantization-process) section,
           which will be mounted inside the container to `/workspace/quantization`.
     
-    * Run the original quantized graph (from step 5) to replace the `RequantizationRangeOp` with min. and max. constants
-      from the `min_max_log.txt` file, which was generated in the previous step.
+    * Replace the `RequantizationRangeOp` in the original quantized graph (from step 5)
+      with the min. and max. constants using the `min_max_log.txt` file.
         ```
         $ bazel-bin/tensorflow/tools/graph_transforms/transform_graph \
         --in_graph=/workspace/quantizationquantized_dynamic_range_graph.pb \

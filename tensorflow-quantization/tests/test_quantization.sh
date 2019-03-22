@@ -22,6 +22,7 @@ echo 'Running with parameters:'
 echo "    WORKSPACE: ${WORKSPACE}"
 echo "    TF_WORKSPACE: ${TF_WORKSPACE}"
 echo "    TEST_WORKSPACE: ${TEST_WORKSPACE}"
+echo "    Mounted Volumes:"
 echo "        ${PRE_TRAINED_MODEL_DIR} mounted on: ${MOUNT_OUTPUT}"
 
 # output directory for tests
@@ -97,13 +98,17 @@ function faster_rcnn(){
     # optimize fp32 frozen graph
     bazel-bin/tensorflow/tools/graph_transforms/transform_graph \
     --in_graph=${OUTPUT}/faster_rcnn_resnet50_fp32_coco/frozen_inference_graph.pb \
-    --out_graph=${OUTPUT}/optimized_faster_rcnn_fp32_graph.pb \
+    --out_graph=${OUTPUT}/${model}_optimized_fp32_graph.pb \
     --inputs='image_tensor' \
-    --outputs='detection_boxes,detection_scores,num_detections,detection_classes' \
+    --outputs=${OUTPUT_NODES} \
     --transforms='strip_unused_nodes remove_nodes(op=Identity, op=CheckNumerics) fold_constants(ignore_errors=true) fold_batch_norms fold_old_batch_norms'
 
+    # Remove downloaded pre-trained model .gz and directory
+    rm -rf ${OUTPUT}/faster_rcnn_resnet50_fp32_coco
+    rm -rf ${OUTPUT}/faster_rcnn_resnet50_fp32_coco_pretrained_model.tar.gz
+
     MODEL_NAME='FasterRCNN'
-    FP32_MODEL=${OUTPUT}/optimized_faster_rcnn_fp32_graph.pb
+    FP32_MODEL=${OUTPUT}/${model}_optimized_fp32_graph.pb
 
     # to generate the logging graph
     TRANSFORMS1='insert_logging(op=RequantizationRange, show_name=true, message="__requant_min_max:")'
@@ -129,11 +134,15 @@ function rfcn(){
     cd ${TF_WORKSPACE}
     bazel-bin/tensorflow/tools/graph_transforms/transform_graph \
     --in_graph=${OUTPUT}/rfcn_resnet101_fp32_coco/frozen_inference_graph.pb \
-    --out_graph=${OUTPUT}/${model}_fp32_graph.pb \
+    --out_graph=${OUTPUT}/${model}_optimized_fp32_graph.pb \
     --outputs=${OUTPUT_NODES} \
     --transforms='remove_nodes(op=Identity, op=CheckNumerics) fold_constants(ignore_errors=true)'
 
-    FP32_MODEL=${OUTPUT}/${model}_fp32_graph.pb
+    # Remove downloaded pre-trained model .gz and directory
+    rm -rf ${OUTPUT}/rfcn_resnet101_fp32_coco
+    rm -rf ${OUTPUT}/rfcn_resnet101_fp32_coco_pretrained_model.tar.gz
+
+    FP32_MODEL=${OUTPUT}/${model}_optimized_fp32_graph.pb
     EXTRA_ARG="--excluded_ops=ConcatV2"
     MODEL_NAME='R-FCN'
 
@@ -189,8 +198,12 @@ function resnet50(){
     run_quantize_model_test
 }
 
-# Run all models, when new model is added append model name below
+# Run all models, when new model is added append model name in alphabetical order below
 for model in faster_rcnn rfcn resnet101 resnet50
 do
+    echo ""
+    echo "Running Quantization Test for model: ${model}"
+    echo ""
+    MODEL_NAME=${model}
     ${model}
 done

@@ -21,26 +21,59 @@
 cd ../
 TF_REPO=$(pwd)
 OUTPUT=${TF_REPO}/output
+LOGS=${OUTPUT}/test_logs.txt
+
+# OUTPUT directory exists when test fails,
+# so we need to clean up and re-create new one for next test run.
+if [ -d ${OUTPUT} ]
+then
+    rm -rf ${OUTPUT}
+fi
+
 mkdir ${OUTPUT}
+
+if [ $? -eq 1 ]
+then
+    echo "Output directory creation for test scripts FAILED" | tee ${LOGS}
+    exit 1
+else
+    echo "Created output directory for running test scripts at: ${OUTPUT}" | tee ${LOGS}
+fi
+
 cd ${TF_REPO}
 
 # Build and run the docker image
 QUANTIZATION_TAG="quantization:latest"
-echo "Building..."
-echo "Quantization container with tag: ${QUANTIZATION_TAG}."
+echo "Building quantization tools docker image with tag: ${QUANTIZATION_TAG}" | tee -a ${LOGS}
 
 docker build -f Dockerfile \
 -t  ${QUANTIZATION_TAG} \
 --build-arg HTTP_PROXY=${HTTP_PROXY} \
 --build-arg HTTPS_PROXY=${HTTPS_PROXY} \
 --build-arg http_proxy=${http_proxy} \
---build-arg https_proxy=${https_proxy} .
+--build-arg https_proxy=${https_proxy} . | tee -a ${LOGS}
 
-echo "Running container: ${QUANTIZATION_TAG}"
-python launch_quantization.py \
---docker-image ${QUANTIZATION_TAG} \
---pre-trained-model-dir ${OUTPUT} \
---test
+if [ $? -eq 0 ]
+then
+    echo ""
+    echo "******** Running Quantization Test Scripts ********" | tee -a ${LOGS}
+    python launch_quantization.py \
+    --docker-image ${QUANTIZATION_TAG} \
+    --pre-trained-model-dir ${OUTPUT} \
+    --test | tee -a ${LOGS}
 
-# clean up the output directory after the test is successfully done.
-sudo rm -rf ${OUTPUT}
+    if grep 'usage: bazel-bin/' ${LOGS} > /dev/null
+    then
+        echo "Test scripts run FAILED !!" | tee -a ${LOGS}
+        echo "Please check logs at: ${LOGS}" | tee -a ${LOGS}
+        exit 1
+    else
+        echo "Test scripts run completed SUCCESSFULLY !!" | tee -a ${LOGS}
+        rm -rf ${OUTPUT}
+    fi
+else
+    echo "Error: Quantization tools docker build FAILED " | tee -a ${LOGS}
+    echo "Test scripts haven't INITIATED, please fix issue and re-run" | tee -a ${LOGS}
+    echo "Please check logs at: ${LOGS}" | tee -a ${LOGS}
+    exit 1
+fi

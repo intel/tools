@@ -36,6 +36,7 @@ function test_ouput_graph(){
 function run_quantize_model_test(){
 
     # Get the dynamic range int8 graph
+    echo "Generate the dynamic range int8 graph for ${model} model..."
     cd ${TF_WORKSPACE}
     python tensorflow/tools/quantization/quantize_graph.py \
     --input=${FP32_MODEL} \
@@ -46,6 +47,7 @@ function run_quantize_model_test(){
     --model_name=${MODEL_NAME} \
     ${EXTRA_ARG}
 
+    echo "${model}_int8_dynamic_range_graph.pb is successfully created."
     OUTPUT_GRAPH=${OUTPUT}/${model}_int8_dynamic_range_graph.pb test_ouput_graph
 
     if [ ${model}=="rfcn" ]; then
@@ -60,28 +62,34 @@ function run_quantize_model_test(){
     fi
 
     # Generate graph with logging
+    echo "Generate the graph with logging for ${model} model..."
     bazel-bin/tensorflow/tools/graph_transforms/transform_graph \
     --in_graph=/${OUTPUT}/${model}_int8_dynamic_range_graph.pb \
     --out_graph=${OUTPUT}/${model}_int8_logged_graph.pb \
     --transforms="${TRANSFORMS1}"
 
+    echo "${model}_int8_logged_graph.pb is successfully created."
     OUTPUT_GRAPH=${OUTPUT}/${model}_int8_logged_graph.pb test_ouput_graph
 
     # Convert the dynamic range int8 graph to freezed range graph
+    echo "Freeze the dynamic range graph using the min max constants from ${model}_min_max_log.txt..."
     bazel-bin/tensorflow/tools/graph_transforms/transform_graph \
     --in_graph=/${OUTPUT}/${model}_int8_dynamic_range_graph.pb \
     --out_graph=${OUTPUT}/${model}_int8_freezedrange_graph.pb \
     --transforms="${TRANSFORMS2}"
 
+    echo "${model}_int8_freezedrange_graph.pb is successfully created."
     OUTPUT_GRAPH=${OUTPUT}/${model}_int8_freezedrange_graph.pb test_ouput_graph
 
     # Generate the an optimized final int8 graph
+    echo "Optimize the ${model} int8 frozen graph..."
     bazel-bin/tensorflow/tools/graph_transforms/transform_graph \
     --in_graph=${OUTPUT}/${model}_int8_freezedrange_graph.pb \
     --outputs=${OUTPUT_NODES} \
     --out_graph=${OUTPUT}/${model}_int8_final_fused_graph.pb \
     --transforms="${TRANSFORMS3}"
 
+    echo "The int8 model is successfully optimized in ${model}_int8_final_fused_graph.pb"
     OUTPUT_GRAPH=${OUTPUT}/${model}_int8_final_fused_graph.pb test_ouput_graph
 }
 
@@ -204,6 +212,7 @@ do
     echo ""
     echo "Running Quantization Test for model: ${model}"
     echo ""
+    echo "Initialize the test parameters for ${model} model..."
     MODEL_NAME=${model}
     ${model}
 done

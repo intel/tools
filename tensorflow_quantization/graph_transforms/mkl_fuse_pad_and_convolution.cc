@@ -17,26 +17,26 @@
 
 #include <algorithm>
 
-#include "tensorflow/tools/graph_transforms/fold_constants_lib.h"
 #include "tensorflow/core/common_runtime/constant_folding.h"
-#include "tensorflow/core/framework/numeric_types.h"
-#include "tensorflow/core/framework/node_def_util.h"
 #include "tensorflow/core/framework/attr_value.pb.h"
+#include "tensorflow/core/framework/node_def_util.h"
+#include "tensorflow/core/framework/numeric_types.h"
 #include "tensorflow/core/graph/graph_constructor.h"
 #include "tensorflow/core/graph/node_builder.h"
 #include "tensorflow/core/graph/subgraph.h"
+#include "tensorflow/core/lib/strings/str_util.h"
 #include "tensorflow/core/platform/init_main.h"
 #include "tensorflow/core/public/session.h"
 #include "tensorflow/core/util/command_line_flags.h"
-#include "tensorflow/core/lib/strings/str_util.h"
+#include "tensorflow/tools/graph_transforms/fold_constants_lib.h"
 #include "tensorflow/tools/graph_transforms/transform_utils.h"
 
 namespace tensorflow {
 namespace graph_transforms {
 
 Status MklFusePadAndConv(const GraphDef& input_graph_def,
-                      const TransformFuncContext& context,
-                      GraphDef *output_graph_def) {
+                         const TransformFuncContext& context,
+                         GraphDef* output_graph_def) {
   GraphDef replaced_graph_def;
   TF_RETURN_IF_ERROR(ReplaceMatchingOpTypes(
       input_graph_def,  // clang-format off

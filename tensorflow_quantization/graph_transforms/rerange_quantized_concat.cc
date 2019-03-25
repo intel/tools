@@ -29,7 +29,6 @@ limitations under the License.
 #include "tensorflow/tools/graph_transforms/fold_constants_lib.h"
 #include "tensorflow/tools/graph_transforms/transform_utils.h"
 
-
 namespace tensorflow {
 namespace graph_transforms {
 
@@ -63,7 +62,7 @@ bool CollectConcatInputs(std::map<string, int> *offset_map,
           can_rerange = false;
           break;
         }
-      // input of concat can be another concat
+        // input of concat can be another concat
       } else if (input_op_type.compare("QuantizedConcatV2") == 0) {
         if (!CollectConcatInputs(offset_map, node_map, node_list, input_node)) {
           std::cout << "Through concat Op, Cannot rerange the op: "
@@ -90,10 +89,10 @@ bool CollectConcatInputs(std::map<string, int> *offset_map,
     }
 
     return can_rerange;
-  // else if (Quan..conv2d..) which is a input to Quant..Pool, push it to the
-  // list and can rarange = true and return
+    // else if (Quan..conv2d..) which is a input to Quant..Pool, push it to the
+    // list and can rarange = true and return
   } else if (op_name.compare("QuantizedConv2DWithBiasAndReluAndRequantize") ==
-           0) {
+             0) {
     NodeDef *conv_node = node;
     bool can_rerange = true;
 
@@ -128,7 +127,7 @@ Status RerangeQuantizedConcat(const GraphDef &input_graph_def,
 
   for (auto &node_pair : node_map) {
     // std::string node_name = node_pair.first;
-    NodeDef *node = reinterpret_cast<NodeDef *>node_pair.second;
+    NodeDef *node = reinterpret_cast<NodeDef *> node_pair.second;
     if (node->op().compare("QuantizedConcatV2") != 0) continue;
 
     NodeDef *concat_node = node;
@@ -173,12 +172,10 @@ Status RerangeQuantizedConcat(const GraphDef &input_graph_def,
 
     for (auto conv : quantized_conv_nodes) {
       int min_offset = offset_map[conv->op()];
-      NodeDef *min_freezed_output_node =
-          reinterpret_cast<NodeDef *>node_map[NodeNameFromInput(
-            conv->input(min_offset))];
-      NodeDef *max_freezed_output_node =
-          reinterpret_cast<NodeDef *>node_map[NodeNameFromInput(
-            conv->input(min_offset + 1))];
+      NodeDef *min_freezed_output_node = reinterpret_cast<NodeDef *>
+          node_map[NodeNameFromInput(conv->input(min_offset))];
+      NodeDef *max_freezed_output_node = reinterpret_cast<NodeDef *>
+          node_map[NodeNameFromInput(conv->input(min_offset + 1))];
       SetNodeTensorAttr<float>("value", min_tensor, min_freezed_output_node);
       SetNodeTensorAttr<float>("value", max_tensor, max_freezed_output_node);
     }

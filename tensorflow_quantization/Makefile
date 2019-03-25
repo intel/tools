@@ -51,7 +51,12 @@ lint:
 	@echo "Running style check for python and lint checks for c++ code. NOTE: Google check can't run on Mac."
 	tox -e py2.7-flake8 -e py3-flake8
 	find . -name "*.cc" | xargs -n1 ./cpplint.py
-	find . -name "*.cc" | xargs -I '{}' sh -c './clang-format -style=Google {} > temp.cc; diff {} temp.cc; rm temp.cc'
+	find . -name "*.cc" | xargs -I '{}' \
+		sh -c './clang-format -style=Google {} > {}-temp.cc; \
+			   echo "File to diff: {}-temp.cc"; \
+			   diff {} {}-temp.cc | tee -a diffs.txt; \
+			   rm {}-temp.cc'; \
+		sh -c "if [ -s diffs.txt ]; then rm diffs.txt && exit 1; else rm diffs.txt; fi"
 	find . -name "BUILD" | xargs -I '{}' sh -c './buildifier {}'
 
 

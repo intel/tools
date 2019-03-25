@@ -60,9 +60,9 @@ namespace graph_transforms {
 // For instance, this graph transform can be applied to the
 // inception_resnets_v2 slim model.
 
-Status FoldConvolutionAndBiasWithMul(
-    const GraphDef& input_graph_def, const TransformFuncContext& context,
-    GraphDef* output_graph_def) {
+Status FoldConvolutionAndBiasWithMul(const GraphDef& input_graph_def,
+                                     const TransformFuncContext& context,
+                                     GraphDef* output_graph_def) {
   GraphDef replaced_graph_def;
   TF_RETURN_IF_ERROR(ReplaceMatchingOpTypes(
       input_graph_def,  // clang-format off

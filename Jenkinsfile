@@ -25,8 +25,8 @@ node() {
             #!/bin/bash -x
             set -e
 
-            cd tensorflow-quantization
-            ~/.local/bin/tox -e py2.7-flake8 -e py3-flake8
+            cd tensorflow_quantization
+            make lint
             """
         }
         stage('Unit tests') {
@@ -34,8 +34,18 @@ node() {
             #!/bin/bash -x
             set -e
 
-            cd tensorflow-quantization
-            ~/.local/bin/tox -e py2.7-py.test -e py3-py.test
+            cd tensorflow_quantization
+            make unit_test
+            """
+        }
+
+        stage('Integration tests') {
+            sh """
+            #!/bin/bash -x
+            set -e
+
+            cd tensorflow_quantization
+            make integration_test
             """
         }
     }

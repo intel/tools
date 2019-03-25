@@ -47,9 +47,8 @@ tox:
 # cpplint.py was from an email with Guozhong Zhuang
 # google checks are from here:
 # https://wiki.ith.intel.com/display/TCEML/Working+with+GitHub+and+releasing+to+opensource
-lint:
-	@echo "Running style check for python and lint checks for c++ code. NOTE: Google check can't run on Mac."
-	tox -e py2.7-flake8 -e py3-flake8
+cpplint:
+	@echo "Running lint checks for c++ code. NOTE: Google check can't run on Mac."
 	find . -name "*.cc" | xargs -n1 ./cpplint.py
 	find . -name "*.cc" | xargs -I '{}' \
 		sh -c './clang-format -style=Google {} > {}-temp.cc; \
@@ -59,13 +58,16 @@ lint:
 		sh -c "if [ -s diffs.txt ]; then rm diffs.txt && exit 1; else rm diffs.txt; fi"
 	find . -name "BUILD" | xargs -I '{}' sh -c './buildifier {}'
 
-
-lint2:
+lint: cpplint
+	@echo "Running style check..."
+	tox -e py2.7-flake8 -e py3-flake8
+	
+lint2: cpplint
 	@echo "Running style check..."
 	tox -e py2.7-flake8
 
-lint3:
-	@echo "Running style check python 3 "
+lint3: cpplint
+	@echo "Running style check..."
 	tox -e py3-flake8
 
 unit_test:
@@ -79,6 +81,10 @@ unit_test2:
 unit_test3:
 	@echo "Running unit tests python 3..."
 	tox -e py3-py.test
+
+integration_test:
+	@echo "Running integration tests..."
+	@cd tensorflow_quantization/tests && ./launch_test.sh
 
 test: lint unit_test
 

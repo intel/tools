@@ -44,9 +44,16 @@ venv3: $(ACTIVATE)
 tox:
 	tox
 
+# cpplint.py was from an email with Guozhong Zhuang
+# google checks are from here:
+# https://wiki.ith.intel.com/display/TCEML/Working+with+GitHub+and+releasing+to+opensource
 lint:
-	@echo "Running style check..."
+	@echo "Running style check for python and lint checks for c++ code. NOTE: Google check can't run on Mac."
 	tox -e py2.7-flake8 -e py3-flake8
+	find . -name "*.cc" | xargs -n1 ./cpplint.py
+	find . -name "*.cc" | xargs -I '{}' sh -c './clang-format -style=Google {} > temp.cc; diff {} temp.cc; rm temp.cc'
+	find . -name "BUILD" | xargs -I '{}' sh -c './buildifier {}'
+
 
 lint2:
 	@echo "Running style check..."

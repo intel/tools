@@ -72,6 +72,7 @@ We also assume that you are in the TensorFlow root directory (`/workspace/tensor
     * The `--inputs` and `--outputs` are the graph input and output node names (from step 1).
     * `--transforms` to be set based on the model topology. See the TensorFlow
       [Transform Reference](https://github.com/tensorflow/tensorflow/tree/master/tensorflow/tools/graph_transforms#transform-reference)
+      and the [Graph Transforms README](/graph_transforms/README.md)
       for descriptions of the different `--transforms` options.
     ```
         $ bazel-bin/tensorflow/tools/graph_transforms/transform_graph \

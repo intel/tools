@@ -12,9 +12,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
-
-#include <algorithm>
 #include <float.h>
+#include <algorithm>
 
 #include "tensorflow/core/common_runtime/constant_folding.h"
 #include "tensorflow/core/framework/attr_value.pb.h"
@@ -30,12 +29,13 @@ limitations under the License.
 #include "tensorflow/tools/graph_transforms/fold_constants_lib.h"
 #include "tensorflow/tools/graph_transforms/transform_utils.h"
 
+
 namespace tensorflow {
 namespace graph_transforms {
 
-bool CollectConcatInputs(std::map<string, int> &offset_map,
-                         std::map<string, const NodeDef *> &node_map,
-                         std::vector<NodeDef *> &quantized_conv_nodes,
+bool CollectConcatInputs(std::map<string, int> *offset_map,
+                         std::map<string, const NodeDef *> *node_map,
+                         std::vector<NodeDef *> *quantized_conv_nodes,
                          NodeDef *node) {
   string op_name = node->op();
   if (op_name.compare("QuantizedConcatV2") == 0) {
@@ -63,9 +63,8 @@ bool CollectConcatInputs(std::map<string, int> &offset_map,
           can_rerange = false;
           break;
         }
-      }
       // input of concat can be another concat
-      else if (input_op_type.compare("QuantizedConcatV2") == 0) {
+      } else if (input_op_type.compare("QuantizedConcatV2") == 0) {
         if (!CollectConcatInputs(offset_map, node_map, node_list, input_node)) {
           std::cout << "Through concat Op, Cannot rerange the op: "
                     << input_node->op() << "\n";
@@ -91,10 +90,9 @@ bool CollectConcatInputs(std::map<string, int> &offset_map,
     }
 
     return can_rerange;
-  }
   // else if (Quan..conv2d..) which is a input to Quant..Pool, push it to the
   // list and can rarange = true and return
-  else if (op_name.compare("QuantizedConv2DWithBiasAndReluAndRequantize") ==
+  } else if (op_name.compare("QuantizedConv2DWithBiasAndReluAndRequantize") ==
            0) {
     NodeDef *conv_node = node;
     bool can_rerange = true;
@@ -130,7 +128,7 @@ Status RerangeQuantizedConcat(const GraphDef &input_graph_def,
 
   for (auto &node_pair : node_map) {
     // std::string node_name = node_pair.first;
-    NodeDef *node = (NodeDef *)node_pair.second;
+    NodeDef *node = reinterpret_cast<NodeDef *>node_pair.second;
     if (node->op().compare("QuantizedConcatV2") != 0) continue;
 
     NodeDef *concat_node = node;
@@ -176,9 +174,11 @@ Status RerangeQuantizedConcat(const GraphDef &input_graph_def,
     for (auto conv : quantized_conv_nodes) {
       int min_offset = offset_map[conv->op()];
       NodeDef *min_freezed_output_node =
-          (NodeDef *)node_map[NodeNameFromInput(conv->input(min_offset))];
+          reinterpret_cast<NodeDef *>node_map[NodeNameFromInput(
+            conv->input(min_offset))];
       NodeDef *max_freezed_output_node =
-          (NodeDef *)node_map[NodeNameFromInput(conv->input(min_offset + 1))];
+          reinterpret_cast<NodeDef *>node_map[NodeNameFromInput(
+            conv->input(min_offset + 1))];
       SetNodeTensorAttr<float>("value", min_tensor, min_freezed_output_node);
       SetNodeTensorAttr<float>("value", max_tensor, max_freezed_output_node);
     }
@@ -219,8 +219,9 @@ Status RerangeQuantizedConcat(const GraphDef &input_graph_def,
         if (reranged_concat.find(current_node) == reranged_concat.end())
           done = true;
       } else if (current_node->op().compare("QuantizedMaxPool") != 0 &&
-                 current_node->op().compare("QuantizedAvgPool") != 0)
+                 current_node->op().compare("QuantizedAvgPool") != 0) {
         done = true;
+      }
     }
 
     if (another_conv_node == nullptr) {

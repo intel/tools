@@ -103,8 +103,10 @@ Status FuseQuantizedConvolutionAndRequantize(
               "QuantizedConv2DWithBiasSumAndRelu") == 0) {
           const NodeDef *in_requantize = node_map[node_map[
               quantized_conv2D_node.input(n_input)]->input(0)];
-          const NodeDef *summand_node = node_map[quantized_conv2D_node.input(n_input)];
-          bool quantized_summand = str_util::StrContains(in_requantize->op(), "Quantized");
+          const NodeDef *summand_node = node_map[quantized_conv2D_node.input(
+            n_input)];
+          bool quantized_summand = str_util::StrContains(
+            in_requantize->op(), "Quantized");
           // If the summand is not quantized, we need to quantize it since the
           // convolution kernel assumes that the summand is always quanitzed.
           if (!quantized_summand &&
@@ -119,7 +121,8 @@ Status FuseQuantizedConvolutionAndRequantize(
             SetNodeAttr("dtype", DT_INT32, &reshape_dims);
             Tensor reshape_dims_tensor(DT_INT32, {1});
             reshape_dims_tensor.flat<int32>()(0) = -1;
-            SetNodeTensorAttr<int32>("value", reshape_dims_tensor, &reshape_dims);
+            SetNodeTensorAttr<int32>(
+              "value", reshape_dims_tensor, &reshape_dims);
             AddNodeInput("^" + summand_node->name(), &reshape_dims);
 
             NodeDef reduction_dims;
@@ -176,8 +179,7 @@ Status FuseQuantizedConvolutionAndRequantize(
             new_nodes->push_back(min_node);
             new_nodes->push_back(max_node);
             new_nodes->push_back(quantize_node);
-          }
-          else {
+          } else {
             string summand(in_requantize->name());
             string min_summand(in_requantize->name() + ":1");
             string max_summand(in_requantize->name() + ":2");
@@ -237,7 +239,7 @@ Status FuseQuantizedConvolutionAndRequantize(
         CopyNodeAttr(quantized_conv2D_node, "padding", "padding", &fused_conv);
 
         if (HasNodeAttr(quantized_conv2D_node, "padding_list"))
-          CopyNodeAttr(quantized_conv2D_node, "padding_list", 
+          CopyNodeAttr(quantized_conv2D_node, "padding_list",
                        "padding_list",     &fused_conv);
 
         // Copy dilation attribute if exsit in the orginal node

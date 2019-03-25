@@ -76,12 +76,10 @@ Status MklFusePadAndConv(const GraphDef& input_graph_def,
               },
               {"Max"}
           }
-
-      }, // clang-format on */
+      },  // clang-format on */
       [](const NodeMatch& match, const std::set<string>& input_nodes,
          const std::set<string>& output_nodes,
          std::vector<NodeDef>* new_nodes) {
-
         // Find all the nodes we expect in the subgraph.
         const NodeDef& quantize_v2_node = match.node;
         CHECK_EQ("QuantizeV2", quantize_v2_node.op());
@@ -91,15 +89,20 @@ Status MklFusePadAndConv(const GraphDef& input_graph_def,
         CHECK_EQ("BiasAdd", bias_add_node.op());
         const NodeDef& conv2d_node = match.inputs[0].inputs[0].inputs[0].node;
         CHECK_EQ("Conv2D", conv2d_node.op());
-        const NodeDef& const_bias_node = match.inputs[0].inputs[0].inputs[1].node;
+        const NodeDef& const_bias_node =
+          match.inputs[0].inputs[0].inputs[1].node;
         CHECK_EQ("Const", const_bias_node.op());
-        const NodeDef& pad_node = match.inputs[0].inputs[0].inputs[0].inputs[0].node;
+        const NodeDef& pad_node =
+          match.inputs[0].inputs[0].inputs[0].inputs[0].node;
         CHECK_EQ("Pad", pad_node.op());
-        const NodeDef& const_filter_node = match.inputs[0].inputs[0].inputs[0].inputs[1].node;
+        const NodeDef& const_filter_node =
+          match.inputs[0].inputs[0].inputs[0].inputs[1].node;
         CHECK_EQ("Const", const_filter_node.op());
-        const NodeDef& dequantize_node = match.inputs[0].inputs[0].inputs[0].inputs[0].inputs[0].node;
+        const NodeDef& dequantize_node =
+          match.inputs[0].inputs[0].inputs[0].inputs[0].inputs[0].node;
         CHECK_EQ("Dequantize", dequantize_node.op());
-        const NodeDef& const_paddings_node = match.inputs[0].inputs[0].inputs[0].inputs[0].inputs[1].node;
+        const NodeDef& const_paddings_node =
+          match.inputs[0].inputs[0].inputs[0].inputs[0].inputs[1].node;
         CHECK_EQ("Const", const_paddings_node.op());
 
         // Read the value on convolution's padding attribute
@@ -122,14 +125,16 @@ Status MklFusePadAndConv(const GraphDef& input_graph_def,
 
           NodeDef req_range;
           req_range.set_op("RequantizationRange");
-          req_range.set_name(match.node.name() + "/pad_fusion_requantization_range");
+          req_range.set_name(match.node.name() +
+            "/pad_fusion_requantization_range");
           SetNodeAttr("Tinput", DT_QINT32, &req_range);
 
 
           // Create the new fused Convolution node
           NodeDef fused_pad_and_conv;
           fused_pad_and_conv.set_op("QuantizedConv2DWithBiasAndRelu");
-          fused_pad_and_conv.set_name(match.node.name() + "/fused_pad_and_conv");
+          fused_pad_and_conv.set_name(
+            match.node.name() + "/fused_pad_and_conv");
 
           // Connect nodes' inputs
           AddNodeInput(fused_pad_and_conv.name(), &requantize);
@@ -150,10 +155,12 @@ Status MklFusePadAndConv(const GraphDef& input_graph_def,
           CopyNodeAttr(conv2d_node, "padding", "padding", &fused_pad_and_conv);
 
           if (HasNodeAttr(conv2d_node, "dilations"))
-            CopyNodeAttr(conv2d_node, "dilations", "dilations", &fused_pad_and_conv);
+            CopyNodeAttr(
+              conv2d_node, "dilations", "dilations", &fused_pad_and_conv);
 
           // Quantize the convolution filter
-          TensorProto filter_tensor_proto = const_filter_node.attr().at("value").tensor();
+          TensorProto filter_tensor_proto = const_filter_node.attr().at(
+            "value").tensor();
           Tensor filter_tensor;
           CHECK(filter_tensor.FromProto(filter_tensor_proto));
           float* filter_buf = filter_tensor.flat<float>().data();
@@ -162,8 +169,10 @@ Status MklFusePadAndConv(const GraphDef& input_graph_def,
           Tensor output_filter(DT_QINT8, filter_tensor.shape());
           qint8* output_filter_buf = output_filter.flat<qint8>().data();
 
-          Eigen::Tensor<float, 0, Eigen::RowMajor> min = filter_tensor.flat_inner_dims<float>().minimum();
-          Eigen::Tensor<float, 0, Eigen::RowMajor> max = filter_tensor.flat_inner_dims<float>().maximum();
+          Eigen::Tensor<float, 0, Eigen::RowMajor> min =
+            filter_tensor.flat_inner_dims<float>().minimum();
+          Eigen::Tensor<float, 0, Eigen::RowMajor> max =
+            filter_tensor.flat_inner_dims<float>().maximum();
           float filter_min = min();
           float filter_max = max();
           float min_range, max_range;
@@ -175,15 +184,16 @@ Status MklFusePadAndConv(const GraphDef& input_graph_def,
           max_range = std::max(0.0f, max_range);
           float scale = std::max(std::abs(min_range), std::abs(max_range));
 
-          for (int i=0; i < filter_tensor.NumElements(); i++)
-          {
-            output_filter_buf[i] = static_cast<qint8>(round(127.0f * filter_buf[i] / scale));
+          for (int i=0; i < filter_tensor.NumElements(); i++) {
+            output_filter_buf[i] = static_cast<qint8>(
+              round(127.0f * filter_buf[i] / scale));
           }
 
           // Create and set up the quantized filter node
           NodeDef quantized_filter_node;
           quantized_filter_node.set_op("Const");
-          quantized_filter_node.set_name(match.node.name() + "/pad_fusion_quantized_filter");
+          quantized_filter_node.set_name(
+            match.node.name() + "/pad_fusion_quantized_filter");
           quantized_filter_node.clear_attr();
           AttrValue attr_type;
           attr_type.set_type(output_filter.dtype());
@@ -197,10 +207,12 @@ Status MklFusePadAndConv(const GraphDef& input_graph_def,
           // Create and set up a filter_min node
           NodeDef quantized_filter_min;
           quantized_filter_min.set_op("Const");
-          quantized_filter_min.set_name(match.node.name() + "/pad_fusion_filter_min");
+          quantized_filter_min.set_name(
+            match.node.name() + "/pad_fusion_filter_min");
           AttrValue attr_type_filter_min;
           attr_type_filter_min.set_type(DT_FLOAT);
-          quantized_filter_min.mutable_attr()->insert({"dtype", attr_type_filter_min});
+          quantized_filter_min.mutable_attr()->insert(
+            {"dtype", attr_type_filter_min});
 
           TensorShape scalar_tensor_shape;
           int32 dims_array = 0;
@@ -211,15 +223,18 @@ Status MklFusePadAndConv(const GraphDef& input_graph_def,
           AttrValue attr_tensor_filter_min;
           TensorProto* t_filter_min = attr_tensor_filter_min.mutable_tensor();
           filter_min_tensor.AsProtoTensorContent(t_filter_min);
-          quantized_filter_min.mutable_attr()->insert({"value", attr_tensor_filter_min});
+          quantized_filter_min.mutable_attr()->insert(
+            {"value", attr_tensor_filter_min});
 
           // Create and set up a filter_max node
           NodeDef quantized_filter_max;
           quantized_filter_max.set_op("Const");
-          quantized_filter_max.set_name(match.node.name() + "/pad_fusion_filter_max");
+          quantized_filter_max.set_name(
+            match.node.name() + "/pad_fusion_filter_max");
           AttrValue attr_type_filter_max;
           attr_type_filter_max.set_type(DT_FLOAT);
-          quantized_filter_max.mutable_attr()->insert({"dtype", attr_type_filter_max});
+          quantized_filter_max.mutable_attr()->insert(
+            {"dtype", attr_type_filter_max});
 
           Tensor filter_max_tensor(DT_FLOAT, scalar_tensor_shape);
           float* filter_max_buf = filter_max_tensor.flat<float>().data();
@@ -227,9 +242,11 @@ Status MklFusePadAndConv(const GraphDef& input_graph_def,
           AttrValue attr_tensor_filter_max;
           TensorProto* t_filter_max = attr_tensor_filter_max.mutable_tensor();
           filter_max_tensor.AsProtoTensorContent(t_filter_max);
-          quantized_filter_max.mutable_attr()->insert({"value", attr_tensor_filter_max});
+          quantized_filter_max.mutable_attr()->insert(
+            {"value", attr_tensor_filter_max});
 
-          // Add the quantized filter, filter_min and filter_max nodes to the replacement
+          // Add the quantized filter, filter_min and
+          // filter_max nodes to the replacement
           new_nodes->push_back(quantized_filter_node);
           new_nodes->push_back(quantized_filter_min);
           new_nodes->push_back(quantized_filter_max);
@@ -241,8 +258,10 @@ Status MklFusePadAndConv(const GraphDef& input_graph_def,
           AddNodeInput(quantized_filter_min.name(), &fused_pad_and_conv);
           AddNodeInput(quantized_filter_max.name(), &fused_pad_and_conv);
 
-          // Pass the paddings (Pad op's input) to the convolution fusion as an attribute
-          TensorProto paddings_tensor_proto = const_paddings_node.attr().at("value").tensor();
+          // Pass the paddings (Pad op's input) to the convolution
+          // fusion as an attribute
+          TensorProto paddings_tensor_proto = const_paddings_node.attr().at(
+            "value").tensor();
           Tensor paddings_tensor;
           CHECK(paddings_tensor.FromProto(paddings_tensor_proto));
           int *paddings_data = paddings_tensor.flat<int>().data();
@@ -258,10 +277,10 @@ Status MklFusePadAndConv(const GraphDef& input_graph_def,
           new_nodes->push_back(fused_pad_and_conv);
           new_nodes->push_back(requantize);
           new_nodes->push_back(req_range);
-        }
-        else {
+        } else {
           CopyOriginalMatch(match, new_nodes);
-          LOG(ERROR) << "Pad fusion only supports VALID padding. Pattern Skipped!.";
+          LOG(ERROR) <<
+            "Pad fusion only supports VALID padding. Pattern Skipped!.";
         }
         return Status::OK();
       },

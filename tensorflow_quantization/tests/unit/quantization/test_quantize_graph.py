@@ -26,7 +26,7 @@ from __future__ import print_function
 import pytest
 import sys
 import numpy as np
-from mock import MagicMock
+from mock import MagicMock, sentinel
 
 from tensorflow.core.framework import graph_pb2
 from tensorflow.python.client import session
@@ -49,8 +49,23 @@ FLAGS = flags.FLAGS
 
 
 @pytest.fixture()
-def mock_tensor_util(patch):
-    return patch("tensor_util")
+def mock_array_ops(patch):
+    return patch("array_ops")
+
+
+@pytest.fixture()
+def mock_constant_op(patch):
+    return patch("constant_op")
+
+
+@pytest.fixture()
+def mock_create_node(patch):
+    pytest.mock_create_node = patch("create_node")
+
+
+@pytest.fixture()
+def mock_create_constant_node(patch):
+    pytest.mock_create_constant_node = patch("create_constant_node")
 
 
 @pytest.fixture()
@@ -59,8 +74,13 @@ def mock_node_def_pb2(patch):
 
 
 @pytest.fixture()
-def mock_constant_op(patch):
-    return patch("constant_op")
+def mock_session(patch):
+    pytest.mock_session = patch("session")
+
+
+@pytest.fixture()
+def mock_tensor_util(patch):
+    pytest.mock_tensor_util = patch("tensor_util")
 
 
 def run_graph_def(graph_def, input_map, outputs):
@@ -986,17 +1006,27 @@ class QuantizeGraphTest(test.TestCase):
         self.assertProtoEquals(expected_output, stripped_output)
 
     def test_print_input_nodes(self):
+        node = MagicMock(input=["op", "foo"], op="op")
+        # name is reserved in MagicMock constructor
+        node.name = 'foo'
+        nodes_map = {'op': node}
         with catch_stdout() as output:
-            quantize_graph.print_input_nodes(MagicMock(op="op", name="foo", input=['op', 'opp']), {
-                                             'op': 'foo', 'opp': 'bar'}, 5, ["op", "op2"])
+            quantize_graph.print_input_nodes(node, nodes_map, 5, {"op2": True, "op": True})
             output = output.getvalue()
-        assert "     5: op" in output
 
-    @pytest.mark.usefixtures("mock_tensor_util")
+        assert "     op:foo" in output
+
+    @pytest.mark.usefixtures(
+        "mock_array_ops", "mock_create_constant_node", "mock_create_node", "mock_tensor_util", "mock_session")
     def test_intel_cpu_quantize_weight_eightbit(self):
-        # TODO: assert something
-        # pytest.set_trace()
+        pytest.mock_tensor_util.MakeNdarray.return_value.flatten.return_value = 0.0
+        # mock tf session with statement call
+        pytest.mock_session.Session.return_value.as_default.return_value.__enter__.return_value = None
+
         quantize_graph.intel_cpu_quantize_weight_eightbit(MagicMock())
+
+        assert pytest.mock_create_constant_node.call_count == 3
+        pytest.mock_create_node.assert_called_once()
 
     @pytest.mark.usefixtures("mock_node_def_pb2", "mock_constant_op")
     def test_round_nodes_recursively(self):
@@ -1004,6 +1034,7 @@ class QuantizeGraphTest(test.TestCase):
         rewriter.already_visited = {}
         rewriter.output_graph = MagicMock()
         rewriter.round_nodes_recursively(MagicMock(name='bar', op="Conv2D"))
+
         assert pytest.mock_node_def_pb2.call_count == 2
 
 

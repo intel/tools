@@ -26,7 +26,7 @@ from __future__ import print_function
 import pytest
 import sys
 import numpy as np
-from mock import MagicMock, sentinel
+from mock import MagicMock
 
 from tensorflow.core.framework import graph_pb2
 from tensorflow.python.client import session

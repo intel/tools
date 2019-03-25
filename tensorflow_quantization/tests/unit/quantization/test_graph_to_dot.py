@@ -1,6 +1,5 @@
 import pytest
-import sys
-from mock import MagicMock, mock_open, patch
+from mock import MagicMock, mock_open
 
 from quantization.graph_to_dot import main
 from test_utils.io import catch_stdout

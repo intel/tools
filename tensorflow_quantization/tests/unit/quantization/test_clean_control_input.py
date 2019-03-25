@@ -1,6 +1,5 @@
 import pytest
-import sys
-from mock import MagicMock, patch
+from mock import MagicMock
 
 from quantization.clean_control_input import main
 from test_utils.io import catch_stdout

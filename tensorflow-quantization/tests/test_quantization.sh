@@ -68,7 +68,9 @@ function run_quantize_model_test(){
     --out_graph=${OUTPUT}/${model}_int8_logged_graph.pb \
     --transforms="${TRANSFORMS1}"
 
+    echo ""
     echo "${model}_int8_logged_graph.pb is successfully created."
+    echo ""
     OUTPUT_GRAPH=${OUTPUT}/${model}_int8_logged_graph.pb test_ouput_graph
 
     # Convert the dynamic range int8 graph to freezed range graph
@@ -78,7 +80,9 @@ function run_quantize_model_test(){
     --out_graph=${OUTPUT}/${model}_int8_freezedrange_graph.pb \
     --transforms="${TRANSFORMS2}"
 
+    echo ""
     echo "${model}_int8_freezedrange_graph.pb is successfully created."
+    echo ""
     OUTPUT_GRAPH=${OUTPUT}/${model}_int8_freezedrange_graph.pb test_ouput_graph
 
     # Generate the an optimized final int8 graph
@@ -89,7 +93,9 @@ function run_quantize_model_test(){
     --out_graph=${OUTPUT}/${model}_int8_final_fused_graph.pb \
     --transforms="${TRANSFORMS3}"
 
+    echo ""
     echo "The int8 model is successfully optimized in ${model}_int8_final_fused_graph.pb"
+    echo ""
     OUTPUT_GRAPH=${OUTPUT}/${model}_int8_final_fused_graph.pb test_ouput_graph
 }
 

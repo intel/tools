@@ -30,6 +30,11 @@ OUTPUT=${MOUNT_OUTPUT}
 
 function test_ouput_graph(){
     test -f ${OUTPUT_GRAPH}
+    if [ $? == 1 ]; then
+        # clean up the output directory if the test fails.
+        rm -rf ${OUTPUT}
+        exit $?
+    fi
 }
 
 # model quantization steps
@@ -47,11 +52,14 @@ function run_quantize_model_test(){
     --model_name=${MODEL_NAME} \
     ${EXTRA_ARG}
 
-    echo "${model}_int8_dynamic_range_graph.pb is successfully created."
     OUTPUT_GRAPH=${OUTPUT}/${model}_int8_dynamic_range_graph.pb test_ouput_graph
+    echo ""
+    echo "${model}_int8_dynamic_range_graph.pb is successfully created."
+    echo ""
 
     if [ ${model}=="rfcn" ]; then
         # Apply Pad Fusion optimization:
+        echo "Apply Pad Fusion optimization for the int8 dynamic range R-FCN graph..."
         bazel-bin/tensorflow/tools/graph_transforms/transform_graph \
         --in_graph=${OUTPUT}/${model}_int8_dynamic_range_graph.pb \
         --out_graph=${OUTPUT}/${model}_int8_dynamic_range_graph.pb \
@@ -68,10 +76,10 @@ function run_quantize_model_test(){
     --out_graph=${OUTPUT}/${model}_int8_logged_graph.pb \
     --transforms="${TRANSFORMS1}"
 
+    OUTPUT_GRAPH=${OUTPUT}/${model}_int8_logged_graph.pb test_ouput_graph
     echo ""
     echo "${model}_int8_logged_graph.pb is successfully created."
     echo ""
-    OUTPUT_GRAPH=${OUTPUT}/${model}_int8_logged_graph.pb test_ouput_graph
 
     # Convert the dynamic range int8 graph to freezed range graph
     echo "Freeze the dynamic range graph using the min max constants from ${model}_min_max_log.txt..."
@@ -80,10 +88,10 @@ function run_quantize_model_test(){
     --out_graph=${OUTPUT}/${model}_int8_freezedrange_graph.pb \
     --transforms="${TRANSFORMS2}"
 
+    OUTPUT_GRAPH=${OUTPUT}/${model}_int8_freezedrange_graph.pb test_ouput_graph
     echo ""
     echo "${model}_int8_freezedrange_graph.pb is successfully created."
     echo ""
-    OUTPUT_GRAPH=${OUTPUT}/${model}_int8_freezedrange_graph.pb test_ouput_graph
 
     # Generate the an optimized final int8 graph
     echo "Optimize the ${model} int8 frozen graph..."
@@ -93,10 +101,10 @@ function run_quantize_model_test(){
     --out_graph=${OUTPUT}/${model}_int8_final_fused_graph.pb \
     --transforms="${TRANSFORMS3}"
 
+    OUTPUT_GRAPH=${OUTPUT}/${model}_int8_final_fused_graph.pb test_ouput_graph
     echo ""
     echo "The int8 model is successfully optimized in ${model}_int8_final_fused_graph.pb"
     echo ""
-    OUTPUT_GRAPH=${OUTPUT}/${model}_int8_final_fused_graph.pb test_ouput_graph
 }
 
 function faster_rcnn(){

@@ -153,6 +153,8 @@ class LaunchQuantization(object):
             args.docker_image, "/bin/bash"]
 
         if args.test:
+            # remove the `-it` when we're running with a file
+            del docker_run_cmd[2]
             docker_run_cmd.append(workspace + "/tests/test_quantization.sh")
 
         if args.verbose:

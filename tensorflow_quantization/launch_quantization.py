@@ -164,6 +164,7 @@ class LaunchQuantization(object):
 
     def _run_docker_cmd(self, docker_run_cmd):
         """runs docker proc and exits on ctrl c"""
+        # TODO: fail this script if docker fails
         p = subprocess.Popen(docker_run_cmd, preexec_fn=os.setsid)
         try:
             p.communicate()

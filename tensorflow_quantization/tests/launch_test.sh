@@ -54,7 +54,7 @@ docker build -f Dockerfile \
 --build-arg http_proxy=${http_proxy} \
 --build-arg https_proxy=${https_proxy} . | tee -a ${LOGS}
 
-if [ ${PIPESTATUS[0]} -eq 0 ]
+if [ "${PIPESTATUS[0]}" -eq "0" ]
 then
     echo ""
     echo "******** Running Quantization Test Scripts ********" | tee -a ${LOGS}

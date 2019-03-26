@@ -89,7 +89,7 @@ unit_test3:
 
 integration_test:
 	@echo "Running integration tests..."
-	@cd tests && ./launch_test.sh
+	@cd tests && bash launch_test.sh
 
 test: lint unit_test
 

@@ -31,6 +31,8 @@ from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
 from tensorflow.python.platform import gfile
 
+import common_flags
+
 FLAGS = flags.FLAGS
 
 flags.DEFINE_string("graph", "", """TensorFlow 'GraphDef' file to load.""")

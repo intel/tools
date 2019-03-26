@@ -110,8 +110,8 @@ class LaunchQuantization(object):
             mount_test_workspace = workspace + "/tests"
 
             # output and test envs
-            env_vars =["--env", "{}={}".format("MOUNT_OUTPUT", mount_output),
-                       "--env", "{}={}".format("TEST_WORKSPACE", mount_test_workspace)]
+            env_vars = ["--env", "{}={}".format("MOUNT_OUTPUT", mount_output),
+                        "--env", "{}={}".format("TEST_WORKSPACE", mount_test_workspace)]
 
             # output and test volumes
             test_workspace = os.path.join(
@@ -129,7 +129,7 @@ class LaunchQuantization(object):
 
         env_vars += ["--env", "{}={}".format("PRE_TRAINED_MODEL_DIR", args.pre_trained_model_dir),
                      "--env", "{}={}".format("WORKSPACE", workspace),
-                    "--env", "{}={}".format("TF_WORKSPACE", tf_workspace)]
+                     "--env", "{}={}".format("TF_WORKSPACE", tf_workspace)]
 
         # Add proxy to env variables if any set on host
         for environment_proxy_setting in [

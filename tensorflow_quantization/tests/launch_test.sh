@@ -62,7 +62,7 @@ then
     python launch_quantization.py \
     --docker-image ${QUANTIZATION_TAG} \
     --pre-trained-model-dir ${OUTPUT} \
-    --test | tee -a ${LOGS}
+    --verbose --test | tee -a ${LOGS}
 
     if [ "${PIPESTATUS[0]}" -ne 0 ] || [[ "`grep 'usage: bazel-bin/' ${LOGS} > /dev/null`" != "" ]]
     then

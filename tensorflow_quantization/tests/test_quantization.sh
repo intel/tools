@@ -17,6 +17,8 @@
 #
 
 #!/usr/bin/env bash
+set -e
+set -x
 
 echo 'Running with parameters:'
 echo "    WORKSPACE: ${WORKSPACE}"
@@ -43,6 +45,7 @@ function run_quantize_model_test(){
     # Get the dynamic range int8 graph
     echo "Generate the dynamic range int8 graph for ${model} model..."
     cd ${TF_WORKSPACE}
+
     python tensorflow/tools/quantization/quantize_graph.py \
     --input=${FP32_MODEL} \
     --output=${OUTPUT}/${model}_int8_dynamic_range_graph.pb \

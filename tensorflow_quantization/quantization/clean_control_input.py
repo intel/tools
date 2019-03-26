@@ -27,6 +27,8 @@ from tensorflow.python.platform import flags as flags_lib
 from tensorflow.python.platform import gfile
 from google.protobuf import text_format
 
+import common_flags
+
 flags = flags_lib
 FLAGS = flags.FLAGS
 

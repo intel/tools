@@ -84,7 +84,7 @@ unit_test3:
 
 integration_test:
 	@echo "Running integration tests..."
-	@cd tensorflow_quantization/tests && ./launch_test.sh
+	@cd tests && ./launch_test.sh
 
 test: lint unit_test
 

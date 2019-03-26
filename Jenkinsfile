@@ -14,11 +14,11 @@ node() {
             #!/bin/bash -x
             set -e
             # don't know OS, so trying both apt-get and yum install
-            # sudo apt-get install -y python3-dev || sudo yum install -y python36-devel.x86_64
+            sudo apt-get install -y python3-dev || sudo yum install -y python36-devel.x86_64
 
             # virtualenv 16.3.0 is broken do not use it
-            # python2 -m pip install --force-reinstall --user --upgrade pip virtualenv!=16.3.0 tox
-            # python3 -m pip install --force-reinstall --user --upgrade pip virtualenv!=16.3.0 tox
+            python2 -m pip install --force-reinstall --user --upgrade pip virtualenv!=16.3.0 tox
+            python3 -m pip install --force-reinstall --user --upgrade pip virtualenv!=16.3.0 tox
             """
         }
         stage('Style tests') {
@@ -26,9 +26,7 @@ node() {
             #!/bin/bash -x
             set -e
 
-            pwd
-            ls
-            cd tensorflow_quantization
+            cd tools/tensorflow_quantization
             make lint
             """
         }
@@ -37,7 +35,7 @@ node() {
             #!/bin/bash -x
             set -e
 
-            cd tensorflow_quantization
+            cd tools/tensorflow_quantization
             make unit_test
             """
         }
@@ -47,7 +45,7 @@ node() {
             #!/bin/bash -x
             set -e
 
-            cd tensorflow_quantization
+            cd tools/tensorflow_quantization
             make integration_test
             """
         }

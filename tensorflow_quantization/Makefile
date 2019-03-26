@@ -1,0 +1,99 @@
+# Copyright (c) 2019 Intel Corporation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#	http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# SPDX-License-Identifier: EPL-2.0
+#
+
+
+PY_VERSION := 2
+# if py_version is 2, use virtualenv, else python3 venv
+VIRTUALENV_EXE=$(if $(subst 2,,$(PY_VERSION)),python3 -m venv,virtualenv)
+VIRTUALENV_DIR=$(if $(subst 2,,$(PY_VERSION)),.venv3,.venv)
+ACTIVATE="$(VIRTUALENV_DIR)/bin/activate"
+
+.PHONY: venv
+
+all: venv
+
+$(ACTIVATE):
+	@test -d $(VIRTUALENV_DIR) || $(VIRTUALENV_EXE) $(VIRTUALENV_DIR)
+	@touch $(ACTIVATE)
+
+venv: $(ACTIVATE)
+	@echo -n "Using "
+	@. $(ACTIVATE) && python --version
+
+venv2: venv
+
+venv3: PY_VERSION=3
+venv3: $(ACTIVATE)
+	@echo -n "Using "
+	@. $(ACTIVATE) && python3 --version
+
+tox:
+	tox
+
+# Runs Google required linting checks
+# buildifier doesn't write out to files, it just edits them in place
+# so we'll check if a `git diff` shows anything
+cpplint:
+	@echo "Running lint checks for c++ code. NOTE: Google check can't run on Mac."
+	find . -name "*.cc" | xargs -n1 tests/cpplint.py
+	find . -name "*.cc" | xargs -I '{}' \
+		sh -c 'tests/clang-format -style=Google {} > {}-temp.cc; \
+			   echo "File to diff: {}-temp.cc"; \
+			   diff {} {}-temp.cc | tee -a diffs.txt; \
+			   rm {}-temp.cc'; \
+		sh -c "if [ -s diffs.txt ]; then rm diffs.txt && exit 1; else rm diffs.txt; fi"
+	find . -name "BUILD" | xargs -I '{}' \
+		sh -c 'tests/buildifier {}; \
+			   git diff {} | tee -a diffs.txt'; \
+		sh -c "if [ -s diffs.txt ]; then rm diffs.txt && exit 1; else rm diffs.txt; fi"
+
+lint: cpplint
+	@echo "Running style check..."
+	tox -e py2.7-flake8 -e py3-flake8
+	
+lint2: cpplint
+	@echo "Running style check..."
+	tox -e py2.7-flake8
+
+lint3: cpplint
+	@echo "Running style check..."
+	tox -e py3-flake8
+
+unit_test:
+	@echo "Running unit tests..."
+	tox -e py2.7-py.test -e py3-py.test
+
+unit_test2:
+	@echo "Running unit tests python 2..."
+	tox -e py2.7-py.test
+
+unit_test3:
+	@echo "Running unit tests python 3..."
+	tox -e py3-py.test
+
+integration_test:
+	@echo "Running integration tests..."
+	@cd tests && bash launch_test.sh
+
+test: lint unit_test
+
+test2: lint2 unit_test2
+
+test3: lint3 unit_test3
+
+clean:
+	rm -rf .venv .venv3 .tox

@@ -64,7 +64,7 @@ then
     --pre-trained-model-dir ${OUTPUT} \
     --verbose --test | tee -a ${LOGS}
 
-    if [ "${PIPESTATUS[0]}" -ne 0 ] || [[ "`grep 'usage: bazel-bin/' ${LOGS} > /dev/null`" != "" ]]
+    if [ "${PIPESTATUS[0]}" -ne "0" ] || [[ "`grep 'usage: bazel-bin/' ${LOGS} > /dev/null`" != "" ]]
     then
         echo "Test scripts run FAILED !!" | tee -a ${LOGS}
         echo "Please check logs at: ${LOGS}" | tee -a ${LOGS}

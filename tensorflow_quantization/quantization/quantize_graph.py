@@ -316,6 +316,50 @@ def quantize_weight_eightbit(input_node, quantization_mode):
     set_attr_string(dequantize_node, "mode", quantization_mode)
     return [quint8_const_node, min_node, max_node, dequantize_node]
 
+def quantize_bias_eightbit(input_node, quantization_mode):
+  """Returns replacement nodes for input_node using the Dequantize op."""
+  base_name = input_node.name + "_"
+  quint8_const_name = base_name + "quint8_const"
+  min_name = base_name + "min"
+  max_name = base_name + "max"
+  float_tensor = tensor_util.MakeNdarray(input_node.attr["value"].tensor)
+  min_value = np.min(float_tensor.flatten())
+  max_value = np.max(float_tensor.flatten())
+  # Make sure that the range includes zero.
+  if min_value > 0.0:
+    min_value = 0.0
+  # min_value == max_value is a tricky case. It can occur for general
+  # tensors, and of course for scalars. The quantized ops cannot deal
+  # with this case, so we set max_value to something else.
+  # It's a tricky question what is the numerically best solution to
+  # deal with this degeneracy.
+  # TODO(petewarden): Better use a tolerance than a hard comparison?
+  if min_value == max_value:
+    if abs(min_value) < 0.000001:
+      max_value = min_value + 1.0
+    elif min_value > 0:
+      max_value = 2 * min_value
+    else:
+      max_value = min_value / 2.0
+
+  sess = session.Session()
+  with sess.as_default():
+    quantize_op = array_ops.quantize_v2(
+        float_tensor,
+        min_value,
+        max_value,
+        dtypes.quint8,
+        mode=quantization_mode)
+    quint8_tensor = quantize_op[0].eval()
+    min_value = quantize_op[1].eval()
+    max_value = quantize_op[2].eval()
+  shape = tensor_util.TensorShapeProtoToList(input_node.attr["value"]
+                                             .tensor.tensor_shape)
+  quint8_const_node = create_constant_node(
+      quint8_const_name, quint8_tensor, dtypes.quint8, shape=shape)
+  min_node = create_constant_node(min_name, min_value, dtypes.float32)
+  max_node = create_constant_node(max_name, max_value, dtypes.float32)
+  return [quint8_const_node, min_node, max_node]
 
 # TODO(intel-tf): Current Intel-CPU quantized Conv2D and Matmul supports only
 # signed scaled mode of weight quantization.
@@ -805,6 +849,83 @@ class GraphRewriter(object):
         else:
             self.add_dequantize_result_node(quantize_down_name, original_node.name)
 
+    # TODO(intel-tf): Quantized Matmul could be fused with few other succeeding
+    # ops. Current support is for BiasAdd and Relu.
+    def intel_cpu_eightbitize_matmul_node(self, original_node, bias_node=None,
+                                      bias_add_name=None, add_node_name=None,
+                                      relu_node_name=None):
+        """Replaces a matmul node with the eight bit equivalent sub-graph."""
+        all_input_names = self.add_eightbit_prologue_nodes_matmul(original_node)
+        quantize_bias=False
+        if bias_node and add_node_name and relu_node_name:
+          new_node = node_def_pb2.NodeDef()
+          new_node.CopyFrom(bias_node)
+          self.add_output_graph_node(new_node)
+          all_input_names = all_input_names[:2] + [bias_node.name] + \
+              all_input_names[2:] + [add_node_name]
+          quantized_mat_mul_name = original_node.name + "_eightbit_quantized_mat_mul"
+          quantized_mat_mul_node = create_node("QuantizedMatMulWithBiasSumAndRelu",
+                                  quantized_mat_mul_name, all_input_names)
+        elif bias_node and (not add_node_name) and relu_node_name:
+          new_node = node_def_pb2.NodeDef()
+          new_node.CopyFrom(bias_node)
+          self.add_output_graph_node(new_node)
+          if quantize_bias == True:
+            quantized_bias = quantize_bias_eightbit(new_node, b"SCALED")
+            for n in quantized_bias:
+              self.add_output_graph_node(n)
+            all_input_names = all_input_names[:2] + [quantized_bias[0].name] + \
+              all_input_names[2:] + [quantized_bias[1].name]+ [quantized_bias[2].name]
+          else:
+            all_input_names = all_input_names[:2] + [bias_node.name] + \
+              all_input_names[2:]   
+          quantized_mat_mul_name = original_node.name + "_eightbit_quantized_mat_mul"
+          quantized_mat_mul_node = create_node("QuantizedMatMulWithBiasAndRelu",
+                                  quantized_mat_mul_name, all_input_names)
+          """Setting First layer's quantization mode to MIN_FIRST"""
+          if "hiddenlayer_0" in quantized_mat_mul_name:
+            set_attr_string(quantized_mat_mul_node, "input_quant_mode", b"MIN_FIRST")
+        elif bias_node and bias_add_name  and \
+            (not add_node_name) and (not relu_node_name):
+          new_node = node_def_pb2.NodeDef()
+          new_node.CopyFrom(bias_node)
+          self.add_output_graph_node(new_node)
+          if quantize_bias== True:
+            quantized_bias = quantize_bias_eightbit(new_node, b"SCALED")
+            for n in quantized_bias:
+              self.add_output_graph_node(n)
+            all_input_names = all_input_names[:2] + [quantized_bias[0].name] + \
+              all_input_names[2:] + [quantized_bias[1].name]+ [quantized_bias[2].name]
+          else:
+            all_input_names = all_input_names[:2] + [bias_node.name] + \
+              all_input_names[2:]     
+          quantized_mat_mul_name = original_node.name + "_eightbit_quantized_mat_mul"
+          quantized_mat_mul_node = create_node("QuantizedMatMulWithBias",
+                                  quantized_mat_mul_name, all_input_names)
+          set_attr_dtype(quantized_mat_mul_node, "Tbias", dtypes.float32)
+        else:
+          quantized_mat_mul_name = original_node.name + "_eightbit_quantized_mat_mul"
+          quantized_mat_mul_node = create_node("QuantizedMatMul", quantized_conv_name,
+                                            all_input_names)
+        set_attr_dtype(quantized_mat_mul_node, "T1", dtypes.quint8)
+        set_attr_dtype(quantized_mat_mul_node, "T2", dtypes.qint8)
+        set_attr_dtype(quantized_mat_mul_node, "Toutput", dtypes.qint32)
+        copy_attr(quantized_mat_mul_node, "transpose_a",
+                  original_node.attr["transpose_a"])
+        copy_attr(quantized_mat_mul_node, "transpose_b",
+                  original_node.attr["transpose_b"])
+        self.add_output_graph_node(quantized_mat_mul_node)
+        quantize_down_name = self.add_quantize_down_nodes(original_node,
+                                                          quantized_mat_mul_name)
+        
+        if bias_node and relu_node_name:
+          self.add_dequantize_result_node(quantize_down_name, relu_node_name)
+        elif bias_node and bias_add_name and \
+            (not add_node_name) and (not relu_node_name):
+          self.add_dequantize_result_node(quantize_down_name, bias_add_name)
+        else:
+          self.add_dequantize_result_node(quantize_down_name, original_node.name)   
+
     # TODO(intel-tf): To check whether Conv2D is fed by relu directly or via
     # pooling ops. This is required as intel cpu requires input tensor for Conv2D
     # to be non-negative.
@@ -846,7 +967,7 @@ class GraphRewriter(object):
             fuse_with_conv = (False, False, False)
 
         if current_node.op == "Conv2D":
-            if FLAGS.model_name not in ["FasterRCNN"]:
+            if FLAGS.model_name not in ["FasterRCNN", "R-FCN"]:
                 should_quantize_conv = self.intel_cpu_find_relu_recursively(current_node)
             else:
                 if self.conv_count in [39]:
@@ -855,20 +976,25 @@ class GraphRewriter(object):
                     should_quantize_conv = True
             self.conv_count = self.conv_count + 1
         if current_node.op == "ConcatV2":
-            should_quantize_concat = FLAGS.model_name not in ["FasterRCNN"] and not ('map/while' in current_node.name)
-            # should_quantize_concat = self.intel_cpu_find_switch_input_any(current_node)
+            should_quantize_concat = FLAGS.model_name not in ["FasterRCNN", "R-FCN"] and not ('map/while' in current_node.name)
 
+            # should_quantize_concat = self.intel_cpu_find_switch_input_any(current_node)
+        """Dont quantize concatv2 incase of Wide and Deep large ds"""    
+        if current_node.op == "ConcatV2":
+            if FLAGS.model_name in ["wide_deep_large_ds"]:
+                should_quantize_concat = False
+        if current_node.op == "MatMul" and FLAGS.model_name in ["wide_deep_large_ds"]:
+            should_quantize_conv = True     
         inputs = list(enumerate(current_node.input))
         if current_node.op in ("AddN", "Add"):
             inputs = reversed(inputs)
-
         for i, input_node_name in inputs:
             input_node_name = node_name_from_input(input_node_name)
             input_node = self.nodes_map[input_node_name]
-
             if should_quantize_conv and i == 1 and input_node.op == "Const":
                 quantize_input = True
-
+            if current_node.op in ("MatMul") and FLAGS.model_name in ["wide_deep_large_ds"]:
+                quantize_input = True          
             self.state.output_node_stack.append([current_node, i, quantize_input,
                                                  fuse_with_conv])
             self.intel_cpu_eightbitize_nodes_recursively(input_node)
@@ -916,6 +1042,50 @@ class GraphRewriter(object):
                                                      parent[0].name)
             else:
                 self.intel_cpu_eightbitize_conv_node(current_node)
+        elif current_node.op == "MatMul" and should_quantize_conv and quantize_input and FLAGS.model_name in ["wide_deep_large_ds"]:
+            # match pattern for fusion with bias and relu for Wide&Deep
+            grand_parent, parent = self.state.output_node_stack[-2:]
+            if parent[0].op == "BiasAdd" and \
+                    (grand_parent[0].op == "Relu" or grand_parent[0].op == "Relu6"):
+                self.state.output_node_stack[-2][3] = True  # BiasAdd to be fused
+                self.state.output_node_stack[-3][3] = True  # Relu to be fused
+                bias_node_name = node_name_from_input(parent[0].input[1])
+                bias_node = self.nodes_map[bias_node_name]
+                self.intel_cpu_eightbitize_matmul_node(current_node, bias_node, None,
+                                                     None, grand_parent[0].name)
+            elif parent[0].op == "BiasAdd" and grand_parent[0].op in ("AddN", "Add"):
+                grand_grand_parent = self.state.output_node_stack[-3]
+                if grand_grand_parent[0].op in ("Relu", "Relu6") \
+                        and (not self.state.output_node_stack[-3][3]) \
+                        and (not self.state.output_node_stack[-4][3]):
+                    self.state.output_node_stack[-2][3] = True  # BiasAdd to be fused
+                    self.state.output_node_stack[-3][3] = True  # AddN to be fused
+                    self.state.output_node_stack[-4][3] = True  # Relu to be fused
+                    bias_node_name = node_name_from_input(parent[0].input[1])
+                    bias_node = self.nodes_map[bias_node_name]
+                    add_node_name = node_name_from_input(grand_parent[0].input[0])
+                    self.intel_cpu_eightbitize_matmul_node(current_node, bias_node, None,
+                                                         add_node_name,
+                                                         grand_grand_parent[0].name)
+                elif (not self.state.output_node_stack[-2][3]):  # Fuse BiasAdd then
+                    self.state.output_node_stack[-2][3] = True  # BiasAdd to be fused
+                    bias_node_name = node_name_from_input(parent[0].input[1])
+                    bias_node = self.nodes_map[bias_node_name]
+                    self.intel_cpu_eightbitize_matmul_node(current_node, bias_node,
+                                                         parent[0].name)
+                else:
+                    self.intel_cpu_eightbitize_matmul_node(current_node)
+            elif parent[0].op == "BiasAdd" and \
+                    (not self.state.output_node_stack[-2][3]):
+                self.state.output_node_stack[-2][3] = True  # BiasAdd to be fused
+                bias_node_name = node_name_from_input(parent[0].input[1])
+                bias_node = self.nodes_map[bias_node_name]
+                self.intel_cpu_eightbitize_matmul_node(current_node, bias_node,
+                                                     parent[0].name)
+            else:
+                new_node = node_def_pb2.NodeDef()
+                new_node.CopyFrom(current_node)
+                self.add_output_graph_node(new_node)        
         elif current_node.op == "BiasAdd" and \
                 self.state.output_node_stack[-1][3] == True:
             pass  # This op is already processed by fused quantization
@@ -936,9 +1106,16 @@ class GraphRewriter(object):
             if parent[0].op == "Conv2D" and parent[2]:
                 for n in intel_cpu_quantize_weight_eightbit(current_node, b"SCALED"):
                     self.add_output_graph_node(n)
+            #Quantization of constants for Wide and Deep
+            elif parent[0].op == "MatMul" and parent[2]  and FLAGS.model_name in ["wide_deep_large_ds"]:
+                for n in intel_cpu_quantize_weight_eightbit(current_node, b"SCALED"):
+                    self.add_output_graph_node(n)        
             elif parent[0].op == "BiasAdd" and \
                     self.state.output_node_stack[-2][3]:
                 pass  # This constant is already process by fused quantization
+            elif self.should_quantize_const(current_node):
+                for n in quantize_weight_eightbit(current_node, b"MIN_FIRST"):
+                    self.add_output_graph_node(n)
             else:
                 new_node = node_def_pb2.NodeDef()
                 new_node.CopyFrom(current_node)
@@ -987,6 +1164,27 @@ class GraphRewriter(object):
                 all_input_names.append(original_input_name)
 
         return all_input_names
+
+    """Get input to matmul node  """   
+    def add_eightbit_prologue_nodes_matmul(self, original_node):
+      """Adds input conversion nodes to handle quantizing the underlying node."""
+      namespace_prefix = original_node.name + "_eightbit"
+      reshape_dims_name, reduction_dims_name = self.add_common_quantization_nodes(
+          namespace_prefix)
+      input_names = []
+      min_max_names = []
+      for original_input_name in original_node.input:
+          quantize_input_name, min_input_name, max_input_name = (
+              self.eightbitize_input_to_node_matmul(namespace_prefix, original_input_name,
+                                             reshape_dims_name,
+                                             reduction_dims_name))
+          input_names.append(quantize_input_name)
+          min_max_names.append(min_input_name)
+          min_max_names.append(max_input_name)
+      all_input_names = []
+      all_input_names.extend(input_names)
+      all_input_names.extend(min_max_names)
+      return all_input_names    
 
     def add_common_quantization_nodes(self, namespace_prefix, control_input_name=None):
         """Builds constant nodes needed for quantization of inputs."""
@@ -1049,6 +1247,41 @@ class GraphRewriter(object):
         self.quantized_node_dict[unique_input_name] = (quantize_input_name,
                                                        min_output_name, max_output_name)
         return quantize_input_name, min_output_name, max_output_name
+
+    """Adding this function for Wide and Deep to quantize inputs in MIN_FIRST mode"""    
+    def eightbitize_input_to_node_matmul(self, namespace_prefix, original_input_name,
+                                reshape_dims_name, reduction_dims_name):
+        """Takes one float input to an op, and converts it to quantized form."""
+        unique_input_name = unique_node_name_from_input(original_input_name)
+        reshape_input_name = namespace_prefix + "_reshape_" + unique_input_name
+        min_input_name = namespace_prefix + "_min_" + unique_input_name
+        max_input_name = namespace_prefix + "_max_" + unique_input_name
+        quantize_input_name = namespace_prefix + "_quantize_" + unique_input_name
+        reshape_input_node = create_node("Reshape", reshape_input_name,
+                                         [original_input_name, reshape_dims_name])
+        set_attr_dtype(reshape_input_node, "T", dtypes.float32)
+        self.add_output_graph_node(reshape_input_node)
+        min_input_node = create_node("Min", min_input_name,
+                                     [reshape_input_name, reduction_dims_name])
+        set_attr_dtype(min_input_node, "T", dtypes.float32)
+        set_attr_dtype(min_input_node, "Tidx", dtypes.int32)
+        set_attr_bool(min_input_node, "keep_dims", False)
+        self.add_output_graph_node(min_input_node)
+        max_input_node = create_node("Max", max_input_name,
+                                     [reshape_input_name, reduction_dims_name])
+        set_attr_dtype(max_input_node, "T", dtypes.float32)
+        set_attr_dtype(max_input_node, "Tidx", dtypes.int32)
+        set_attr_bool(max_input_node, "keep_dims", False)
+        self.add_output_graph_node(max_input_node)
+        quantize_input_node = create_node(
+            "QuantizeV2", quantize_input_name,
+            [original_input_name, min_input_name, max_input_name])
+        set_attr_dtype(quantize_input_node, "T", dtypes.quint8)
+        set_attr_string(quantize_input_node, "mode", b"MIN_FIRST")
+        self.add_output_graph_node(quantize_input_node)
+        min_output_name = quantize_input_name + ":1"
+        max_output_name = quantize_input_name + ":2"
+        return quantize_input_name, min_output_name, max_output_name    
 
     def add_quantize_down_nodes(self, original_node, quantized_output_name):
         quantized_outputs = [

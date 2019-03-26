@@ -47,6 +47,8 @@ tox:
 # cpplint.py was from an email with Guozhong Zhuang
 # google checks are from here:
 # https://wiki.ith.intel.com/display/TCEML/Working+with+GitHub+and+releasing+to+opensource
+# buildifier doesn't write out to files, it just edits them in place
+# so we'll check if a `git diff` shows anything
 cpplint:
 	@echo "Running lint checks for c++ code. NOTE: Google check can't run on Mac."
 	find . -name "*.cc" | xargs -n1 ./cpplint.py
@@ -56,7 +58,10 @@ cpplint:
 			   diff {} {}-temp.cc | tee -a diffs.txt; \
 			   rm {}-temp.cc'; \
 		sh -c "if [ -s diffs.txt ]; then rm diffs.txt && exit 1; else rm diffs.txt; fi"
-	find . -name "BUILD" | xargs -I '{}' sh -c './buildifier {}'
+	find . -name "BUILD" | xargs -I '{}' \
+		sh -c './buildifier {}; \
+			   git diff {} | tee -a diffs.txt'; \
+		sh -c "if [ -s diffs.txt ]; then rm diffs.txt && exit 1; else rm diffs.txt; fi"
 
 lint: cpplint
 	@echo "Running style check..."

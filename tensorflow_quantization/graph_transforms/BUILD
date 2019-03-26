@@ -7,12 +7,12 @@ licenses(["notice"])  # Apache 2.0
 
 load(
     "//tensorflow:tensorflow.bzl",
+    "if_not_v2",
     "if_not_windows",
-    "tf_copts",
     "tf_cc_binary",
     "tf_cc_test",
+    "tf_copts",
     "tf_py_test",
-    "if_not_v2",
 )
 
 exports_files(["LICENSE"])
@@ -103,7 +103,7 @@ cc_library(
         "freeze_requantization_ranges.cc",
         "fuse_convolutions.cc",
         "fuse_quantized_convolution.cc",
-	    "fuse_quantized_matmul.cc",
+        "fuse_quantized_matmul.cc",
         "insert_logging.cc",
         "mkl_fuse_pad_and_convolution.cc",
         "obfuscate_names.cc",

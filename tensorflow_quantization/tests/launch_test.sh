@@ -54,7 +54,7 @@ docker build -f Dockerfile \
 --build-arg http_proxy=${http_proxy} \
 --build-arg https_proxy=${https_proxy} . | tee -a ${LOGS}
 
-if [ $? -eq 0 ]
+if [ ${PIPESTATUS[0]} -eq 0 ]
 then
     echo ""
     echo "******** Running Quantization Test Scripts ********" | tee -a ${LOGS}
@@ -63,7 +63,7 @@ then
     --pre-trained-model-dir ${OUTPUT} \
     --test | tee -a ${LOGS}
 
-    if grep 'usage: bazel-bin/' ${LOGS} > /dev/null
+    if [ "${PIPESTATUS[0]}" -ne 0 ] || [[ "`grep 'usage: bazel-bin/' ${LOGS} > /dev/null`" != "" ]]
     then
         echo "Test scripts run FAILED !!" | tee -a ${LOGS}
         echo "Please check logs at: ${LOGS}" | tee -a ${LOGS}

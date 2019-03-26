@@ -127,7 +127,8 @@ Status RerangeQuantizedConcat(const GraphDef &input_graph_def,
 
   for (auto &node_pair : node_map) {
     // std::string node_name = node_pair.first;
-    NodeDef *node = reinterpret_cast<NodeDef *> node_pair.second;
+    NodeDef *node = const_cast<NodeDef *>(
+        reinterpret_cast<const NodeDef *> node_pair.second);
     if (node->op().compare("QuantizedConcatV2") != 0) continue;
 
     NodeDef *concat_node = node;
@@ -172,10 +173,12 @@ Status RerangeQuantizedConcat(const GraphDef &input_graph_def,
 
     for (auto conv : quantized_conv_nodes) {
       int min_offset = offset_map[conv->op()];
-      NodeDef *min_freezed_output_node = reinterpret_cast<NodeDef *>
-          node_map[NodeNameFromInput(conv->input(min_offset))];
-      NodeDef *max_freezed_output_node = reinterpret_cast<NodeDef *>
-          node_map[NodeNameFromInput(conv->input(min_offset + 1))];
+      NodeDef *min_freezed_output_node = const_cast<NodeDef *>(
+          reinterpret_cast<const NodeDef *>
+              node_map[NodeNameFromInput(conv->input(min_offset))]);
+      NodeDef *max_freezed_output_node = const_cast<NodeDef *>(
+          reinterpret_cast<const NodeDef *>
+              node_map[NodeNameFromInput(conv->input(min_offset + 1))]);
       SetNodeTensorAttr<float>("value", min_tensor, min_freezed_output_node);
       SetNodeTensorAttr<float>("value", max_tensor, max_freezed_output_node);
     }

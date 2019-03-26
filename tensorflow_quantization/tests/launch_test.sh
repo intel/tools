@@ -17,6 +17,7 @@
 #
 
 #!/usr/bin/env bash
+set -e
 
 cd ../
 TF_REPO=$(pwd)

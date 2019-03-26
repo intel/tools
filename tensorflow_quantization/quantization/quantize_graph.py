@@ -94,6 +94,10 @@ flags.DEFINE_boolean(
     "If true eightbitized graph will include fused quantized"
     "nodes in the output_graph for Intel CPU.")
 flags.DEFINE_string("model_name", "", """Include model specific optimizations.""")
+flags.DEFINE_string("excluded_ops", "",
+                    """operations to be excluded, comma separated.""")
+flags.DEFINE_string("excluded_nodes", "",
+                    """Nodes to be excluded, comma separated.""")
 
 
 def print_input_nodes(current_node, nodes_map, indent, already_visited):
@@ -432,7 +436,9 @@ class GraphRewriter(object):
                  mode,
                  quantized_input_range,
                  fallback_quantization_range=None,
-                 intel_cpu_eightbitize=False):
+                 intel_cpu_eightbitize=False,
+                 excluded_ops=None,
+                 excluded_nodes=None):
         """Sets up the class to rewrite a float graph.
 
         Args:
@@ -446,7 +452,9 @@ class GraphRewriter(object):
             range can't be inferred from the graph, use the range
             [fallback_quantization_range[0], fallback_quantization_range[1]) instead
             of using a RequantizationRange node in the graph.
-
+          excluded_ops: list of operations to be excluded from quantization
+          excluded_nodes: list of nodes to be excluded from quantization
+    
         Raises:
           ValueError: Two nodes with the same name were found in the graph.
         """
@@ -458,6 +466,8 @@ class GraphRewriter(object):
         self.conv_count = 0
         self.final_node_renames = {}
         self.quantized_node_dict = {}
+        self.excluded_ops = excluded_ops
+        self.excluded_nodes = excluded_nodes
         if quantized_input_range:
             self.input_range = (quantized_input_range[0], quantized_input_range[1])
             if self.input_range[0] >= self.input_range[1]:
@@ -1006,7 +1016,8 @@ class GraphRewriter(object):
             self.intel_cpu_eightbitize_nodes_recursively(input_node)
             self.state.output_node_stack.pop()
 
-        if current_node.op == "Conv2D" and should_quantize_conv and quantize_input:
+        if current_node.op == "Conv2D" and should_quantize_conv and quantize_input \
+          and (current_node.name not in self.excluded_nodes):
             # match pattern for fusion with bias and relu
             grand_parent, parent = self.state.output_node_stack[-2:]
             if parent[0].op == "BiasAdd" and \
@@ -1094,21 +1105,28 @@ class GraphRewriter(object):
                 new_node.CopyFrom(current_node)
                 self.add_output_graph_node(new_node)
         elif current_node.op == "BiasAdd" and \
-                self.state.output_node_stack[-1][3] == True:
+                        self.state.output_node_stack[-1][3] == True \
+                          and (current_node.name not in self.excluded_nodes):
             pass  # This op is already processed by fused quantization
         elif (current_node.op == "Relu" or current_node.op == "Relu6") \
-                and self.state.output_node_stack[-1][3] == True:
+                and self.state.output_node_stack[-1][3] == True \
+                  and (current_node.name not in self.excluded_nodes):
             pass  # This op is already processed by fused quantization
         elif current_node.op in ("AddN", "Add") and \
-                self.state.output_node_stack[-1][3] == True:
+                        self.state.output_node_stack[-1][3] == True \
+                          and (current_node.name not in self.excluded_nodes):
             pass  # AddN op is already processed by fused quatization
-        elif current_node.op == "MaxPool" or current_node.op == "AvgPool":
+        elif (current_node.op == "MaxPool" or current_node.op == "AvgPool") \
+          and (current_node.op not in self.excluded_ops) \
+            and (current_node.name not in self.excluded_nodes):
             self.eightbitize_single_input_tensor_node(current_node,
                                                       self.add_pool_function)
         elif (current_node.op == "ConcatV2" and should_quantize_concat and
-              dtypes.as_dtype(current_node.attr["T"].type) == dtypes.float32):
+                      dtypes.as_dtype(current_node.attr["T"].type) == dtypes.float32 and
+                      current_node.op not in self.excluded_ops) \
+                      and (current_node.name not in self.excluded_nodes):
             self.eightbitize_concatv2_node(current_node)
-        elif current_node.op == "Const":
+        elif current_node.op == "Const" and (current_node.name not in self.excluded_nodes):
             parent = self.state.output_node_stack[-1]
             if parent[0].op == "Conv2D" and parent[2]:
                 for n in intel_cpu_quantize_weight_eightbit(current_node, b"SCALED"):
@@ -1903,9 +1921,18 @@ def main(unused_args):
             FLAGS.quantized_fallback_min, FLAGS.quantized_fallback_max
         ]
 
+    excluded_ops = None
+    if (FLAGS.excluded_ops is not None):
+        excluded_ops = FLAGS.excluded_ops.split(",")
+
+    excluded_nodes = None
+    if (FLAGS.excluded_nodes is not None):
+        excluded_nodes = FLAGS.excluded_nodes.split(",")
+
     rewriter = GraphRewriter(tf_graph, FLAGS.mode,
                              quantized_input_range, fallback_quantization_range,
-                             FLAGS.intel_cpu_eightbitize)
+                             FLAGS.intel_cpu_eightbitize, excluded_ops=excluded_ops,
+                             excluded_nodes=excluded_nodes)
 
     output_graph = rewriter.rewrite(FLAGS.output_node_names.split(","))
 

@@ -14,7 +14,7 @@ This document describes how to build and use these tools.
   The initial build may take a long time, but subsequent builds will be quicker since layers are cached
    ```
         git clone https://github.com/IntelAI/tools.git
-        cd tools/tensorflow-quantization
+        cd tools/tensorflow_quantization
 
         docker build \
         --build-arg HTTP_PROXY=${HTTP_PROXY} \
@@ -72,7 +72,7 @@ We also assume that you are in the TensorFlow root directory (`/workspace/tensor
     * The `--inputs` and `--outputs` are the graph input and output node names (from step 1).
     * `--transforms` to be set based on the model topology. See the TensorFlow
       [Transform Reference](https://github.com/tensorflow/tensorflow/tree/master/tensorflow/tools/graph_transforms#transform-reference)
-      and the [Graph Transforms README](/tensorflow-quantization/graph_transforms/README.md)
+      and the [Graph Transforms README](/tensorflow_quantization/graph_transforms/README.md)
       for descriptions of the different `--transforms` options.
     ```
         $ bazel-bin/tensorflow/tools/graph_transforms/transform_graph \
@@ -125,7 +125,7 @@ to `Int8` precision.
           ...
           ```
         * The following instructions will be referring to the log file output from your inference run as the `min_max_log.txt` file.
-          For a full example of the output file might look like, see the [calibration_data](/tensorflow-quantization/tests/calibration_data) test files.
+          For a full example of the output file might look like, see the [calibration_data](/tensorflow_quantization/tests/calibration_data) test files.
           We suggest that you store the `min_max_log.txt` in the same location specified in the [start quantization process](#start-quantization-process) section,
           which will be mounted inside the container to `/workspace/quantization`.
     

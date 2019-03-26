@@ -8,7 +8,7 @@ node() {
         dir('tools') {
             checkout scm
         }
-        // TODO: put bback deps
+
         stage('Install dependencies') {
             sh """
             #!/bin/bash -x

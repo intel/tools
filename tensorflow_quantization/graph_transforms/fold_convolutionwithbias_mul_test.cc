@@ -28,7 +28,8 @@ namespace graph_transforms {
 
 // Declare here, so we don't need a public header.
 Status FoldConvolutionAndBiasWithMul(const GraphDef& input_graph_def,
-    const TransformFuncContext& context, GraphDef* output_graph_def);
+                                     const TransformFuncContext& context,
+                                     GraphDef* output_graph_def);
 
 class FoldConvolutionAndBiasWithMulTest : public ::testing::Test {
  protected:
@@ -38,10 +39,10 @@ class FoldConvolutionAndBiasWithMulTest : public ::testing::Test {
     // Create the original graph as shown below:
     // ------------------------------------------------------------
     // Input-->Conv2d-->BiasAdd-->Mul-->
-    //           ^         ^       ^  
+    //           ^         ^       ^
     //         Weights    Bias    const
     // ------------------------------------------------------------
-     // Create the Conv Op with inputs input_op and weights_op.
+    // Create the Conv Op with inputs input_op and weights_op.
     Tensor input_data(DT_FLOAT, TensorShape({1, 1, 6, 2}));
     test::FillValues<float>(
         &input_data, {1.0f, 4.0f, 2.0f, 5.0f, 3.0f, 6.0f, -1.0f, -4.0f, -2.0f,
@@ -68,8 +69,8 @@ class FoldConvolutionAndBiasWithMulTest : public ::testing::Test {
     // Create the mul op with inputs biasadd_op and mul_const_op.
     Tensor mul_const_data(DT_FLOAT, TensorShape({1}));
     test::FillValues<float>(&mul_const_data, {2.0f});
-    Output mul_const_op =
-        Const(root.WithOpName("mul_const_op"), Input::Initializer(mul_const_data));
+    Output mul_const_op = Const(root.WithOpName("mul_const_op"),
+                                Input::Initializer(mul_const_data));
     Output mul_op = Mul(root.WithOpName("mul_op"), biasadd_op, mul_const_op);
 
     // Create the original graph def from as above.
@@ -83,15 +84,16 @@ class FoldConvolutionAndBiasWithMulTest : public ::testing::Test {
     std::vector<Tensor> original_outputs;
     TF_ASSERT_OK(original_session->Run({}, {"output"}, {}, &original_outputs));
 
-    // Create folded graph from original graph using FoldConvolutionAndBiasWithMul.
+    // Create folded graph from original graph using
+    // FoldConvolutionAndBiasWithMul.
     // -----------------------------------------------------
     // Input-->Conv2d------------------------->BiasAdd-->
     //           ^                                ^
     //       NewWeights                        NewBeta
     // -----------------------------------------------------
     GraphDef folded_graph_def;
-    TF_ASSERT_OK(FoldConvolutionAndBiasWithMul(original_graph_def,
-          {{}, {"output"}}, &folded_graph_def));
+    TF_ASSERT_OK(FoldConvolutionAndBiasWithMul(
+        original_graph_def, {{}, {"output"}}, &folded_graph_def));
 
     // Create and run a session on folded graph to get output tensor values.
     std::unique_ptr<Session> fused_session(NewSession(SessionOptions()));

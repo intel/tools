@@ -15,40 +15,39 @@
 # SPDX-License-Identifier: EPL-2.0
 #
 
+# Set PY_VERSION to 2 or 3 to create different envs without using tox
+PY_VERSION ?= $(shell python --version 2>&1  | cut -c8)
 
-PY_VERSION := 2
-# if py_version is 2, use virtualenv, else python3 venv
-VIRTUALENV_EXE=$(if $(subst 2,,$(PY_VERSION)),python3 -m venv,virtualenv)
-VIRTUALENV_DIR=$(if $(subst 2,,$(PY_VERSION)),.venv3,.venv)
-ACTIVATE="$(VIRTUALENV_DIR)/bin/activate"
+# Get OS so as to not run cpplint if on a Mac
+# TODO: is Windows supported?
+OS := $(shell uname)
 
 .PHONY: venv
 
 all: venv
 
-$(ACTIVATE):
-	@test -d $(VIRTUALENV_DIR) || $(VIRTUALENV_EXE) $(VIRTUALENV_DIR)
-	@touch $(ACTIVATE)
+venv:
+	@echo "Creating Python${PY_VERSION} virtualenv"
+	@tox -e py${PY_VERSION}-venv
 
-venv: $(ACTIVATE)
-	@echo -n "Using "
-	@. $(ACTIVATE) && python --version
-
-venv2: venv
-
-venv3: PY_VERSION=3
-venv3: $(ACTIVATE)
-	@echo -n "Using "
-	@. $(ACTIVATE) && python3 --version
+venv-all: venv
+	@echo "Creating Python2 and 3 virtualenv in .venv and .venv3 dirs"
+	@tox -e py2-venv -e py3-venv
 
 tox:
 	tox
 
+
+ifeq ($(OS), Darwin)
+cpplint:
+	@echo "Not running cpp lint tests on Mac, it will fail"
+else
 # Runs Google required linting checks
 # buildifier doesn't write out to files, it just edits them in place
 # so we'll check if a `git diff` shows anything
 cpplint:
 	@echo "Running lint checks for c++ code. NOTE: Google check can't run on Mac."
+	
 	find . -name "*.cc" | xargs -n1 tests/cpplint.py
 	find . -name "*.cc" | xargs -I '{}' \
 		sh -c 'tests/clang-format -style=Google {} > {}-temp.cc; \
@@ -60,30 +59,31 @@ cpplint:
 		sh -c 'tests/buildifier {}; \
 			   git diff {} | tee -a diffs.txt'; \
 		sh -c "if [ -s diffs.txt ]; then rm diffs.txt && exit 1; else rm diffs.txt; fi"
+endif
 
 lint: cpplint
 	@echo "Running style check..."
-	tox -e py2.7-flake8 -e py3-flake8
+	tox -e py2-lint -e py3-lint
 	
 lint2: cpplint
 	@echo "Running style check..."
-	tox -e py2.7-flake8
+	tox -e py2-lint
 
 lint3: cpplint
 	@echo "Running style check..."
-	tox -e py3-flake8
+	tox -e py3-lint
 
 unit_test:
 	@echo "Running unit tests..."
-	tox -e py2.7-py.test -e py3-py.test
+	tox -e py2-unit -e py3-unit
 
 unit_test2:
 	@echo "Running unit tests python 2..."
-	tox -e py2.7-py.test
+	tox -e py2-unit
 
 unit_test3:
 	@echo "Running unit tests python 3..."
-	tox -e py3-py.test
+	tox -e py3-unit
 
 integration_test:
 	@echo "Running integration tests..."

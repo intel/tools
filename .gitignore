@@ -3,3 +3,4 @@ test_data/
 __pycache__/
 *.idea
 .coverage
+*.pyc

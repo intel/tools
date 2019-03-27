@@ -69,6 +69,16 @@ def mock_create_constant_node(patch):
 
 
 @pytest.fixture()
+def mock_flags(patch):
+    return patch("FLAGS")
+
+
+@pytest.fixture()
+def mock_gfile(patch):
+    return patch("gfile")
+
+
+@pytest.fixture()
 def mock_node_def_pb2(patch):
     pytest.mock_node_def_pb2 = patch("node_def_pb2.NodeDef")
 
@@ -81,6 +91,19 @@ def mock_session(patch):
 @pytest.fixture()
 def mock_tensor_util(patch):
     pytest.mock_tensor_util = patch("tensor_util")
+
+
+@pytest.mark.parametrize('flag_input', ['/notafile', '%00', '碁'])
+def test_main_bad_flags(flag_input, mock_gfile, mock_flags):
+    """Asserts passing in bad input causes return of -1"""
+    mock_gfile.Exists.return_value = False
+    mock_flags.input = flag_input
+
+    with catch_stdout() as output:
+        func_return = quantize_graph.main(["--flag", "arg"])
+        output = output.getvalue()
+    assert func_return == -1
+    assert output == "Input graph file '{}' does not exist!\n".format(flag_input)
 
 
 def run_graph_def(graph_def, input_map, outputs):

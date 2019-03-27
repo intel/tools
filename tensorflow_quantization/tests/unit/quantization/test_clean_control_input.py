@@ -27,12 +27,13 @@ def test_main(mock_gfile, mock_graph_pb2):
     assert main(["--flag", "arg"]) == 0
 
 
-def test_main_bad_flags(mock_gfile, mock_flags):
+@pytest.mark.parametrize('flag_input', ['/notafile', '%00', '碁'])
+def test_main_bad_flags(flag_input, mock_gfile, mock_flags):
     """Asserts passing in bad input causes return of -1"""
     mock_gfile.Exists.return_value = False
-    mock_flags.input = "/notafile"
+    mock_flags.input = flag_input
     with catch_stdout() as output:
         func_return = main(["--flag", "arg"])
         output = output.getvalue()
     assert func_return == -1
-    assert output == "Input graph file '/notafile' does not exist!\n"
+    assert output == "Input graph file '{}' does not exist!\n".format(flag_input)

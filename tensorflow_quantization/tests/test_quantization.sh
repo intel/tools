@@ -30,7 +30,7 @@ echo "        ${PRE_TRAINED_MODEL_DIR} mounted on: ${MOUNT_OUTPUT}"
 # output directory for tests
 OUTPUT=${MOUNT_OUTPUT}
 
-function test_ouput_graph(){
+function test_output_graph(){
     test -f ${OUTPUT_GRAPH}
     if [ $? == 1 ]; then
         # clean up the output directory if the test fails.
@@ -55,7 +55,7 @@ function run_quantize_model_test(){
     --model_name=${MODEL_NAME} \
     ${EXTRA_ARG}
 
-    OUTPUT_GRAPH=${OUTPUT}/${model}_int8_dynamic_range_graph.pb test_ouput_graph
+    OUTPUT_GRAPH=${OUTPUT}/${model}_int8_dynamic_range_graph.pb test_output_graph
     echo ""
     echo "${model}_int8_dynamic_range_graph.pb is successfully created."
     echo ""
@@ -69,7 +69,7 @@ function run_quantize_model_test(){
         --outputs=${OUTPUT_NODES} \
         --transforms='mkl_fuse_pad_and_conv'
 
-        OUTPUT_GRAPH=${OUTPUT}/${model}_int8_dynamic_range_graph.pb test_ouput_graph
+        OUTPUT_GRAPH=${OUTPUT}/${model}_int8_dynamic_range_graph.pb test_output_graph
     fi
 
     # Generate graph with logging
@@ -79,7 +79,7 @@ function run_quantize_model_test(){
     --out_graph=${OUTPUT}/${model}_int8_logged_graph.pb \
     --transforms="${TRANSFORMS1}"
 
-    OUTPUT_GRAPH=${OUTPUT}/${model}_int8_logged_graph.pb test_ouput_graph
+    OUTPUT_GRAPH=${OUTPUT}/${model}_int8_logged_graph.pb test_output_graph
     echo ""
     echo "${model}_int8_logged_graph.pb is successfully created."
     echo ""
@@ -91,7 +91,7 @@ function run_quantize_model_test(){
     --out_graph=${OUTPUT}/${model}_int8_freezedrange_graph.pb \
     --transforms="${TRANSFORMS2}"
 
-    OUTPUT_GRAPH=${OUTPUT}/${model}_int8_freezedrange_graph.pb test_ouput_graph
+    OUTPUT_GRAPH=${OUTPUT}/${model}_int8_freezedrange_graph.pb test_output_graph
     echo ""
     echo "${model}_int8_freezedrange_graph.pb is successfully created."
     echo ""
@@ -104,7 +104,7 @@ function run_quantize_model_test(){
     --out_graph=${OUTPUT}/${model}_int8_final_fused_graph.pb \
     --transforms="${TRANSFORMS3}"
 
-    OUTPUT_GRAPH=${OUTPUT}/${model}_int8_final_fused_graph.pb test_ouput_graph
+    OUTPUT_GRAPH=${OUTPUT}/${model}_int8_final_fused_graph.pb test_output_graph
     echo ""
     echo "The int8 model is successfully optimized in ${model}_int8_final_fused_graph.pb"
     echo ""
@@ -145,6 +145,38 @@ function faster_rcnn(){
     TRANSFORMS3='fuse_quantized_conv_and_requantize strip_unused_nodes'
 
     run_quantize_model_test
+}
+
+function inceptionv4() {
+    OUTPUT_NODES='InceptionV4/Logits/Predictions'
+
+    # Download the FP32 pre-trained model
+    cd ${OUTPUT}
+    wget https://storage.googleapis.com/intel-optimized-tensorflow/models/inceptionv4_fp32_pretrained_model.pb
+    FP32_MODEL=${OUTPUT}/inceptionv4_fp32_pretrained_model.pb
+
+    # to generate the logging graph
+    TRANSFORMS1='insert_logging(op=RequantizationRange, show_name=true, message="__requant_min_max:")'
+
+    # to freeze the dynamic range graph
+    TRANSFORMS2='freeze_requantization_ranges(min_max_log_file="/workspace/tests/calibration_data/inceptionv4_min_max_log.txt")'
+
+    # to get the fused and optimized final int8 graph
+    TRANSFORMS3='fuse_quantized_conv_and_requantize strip_unused_nodes'
+
+    run_quantize_model_test
+
+    # to rerange quantize concat
+    TRANSFORMS4='rerange_quantized_concat'
+
+    # run fourth transform separately since run_quantize_model_test just runs three
+    bazel-bin/tensorflow/tools/graph_transforms/transform_graph \
+    --in_graph=${OUTPUT}/${model}_int8_final_fused_graph.pb \
+    --outputs=${OUTPUT_NODES} \
+    --out_graph=${OUTPUT}/${model}_int8_final_graph.pb \
+    --transforms="${TRANSFORMS4}"
+
+    OUTPUT_GRAPH=${OUTPUT}/${model}_int8_final_graph.pb test_output_graph
 }
 
 function rfcn(){
@@ -224,7 +256,7 @@ function resnet50(){
 }
 
 # Run all models, when new model is added append model name in alphabetical order below
-for model in faster_rcnn rfcn resnet101 resnet50
+for model in faster_rcnn inceptionv4 rfcn resnet101 resnet50
 do
     echo ""
     echo "Running Quantization Test for model: ${model}"

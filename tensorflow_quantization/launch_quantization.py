@@ -164,12 +164,16 @@ class LaunchQuantization(object):
 
     def _run_docker_cmd(self, docker_run_cmd):
         """runs docker proc and exits on ctrl c"""
-        # TODO: fail this script if docker fails
         p = subprocess.Popen(docker_run_cmd, preexec_fn=os.setsid)
         try:
-            p.communicate()
+            _, err = p.communicate()
         except KeyboardInterrupt:
             os.killpg(os.getpgid(p.pid), signal.SIGKILL)
+
+        if p.returncode != 0:
+            raise SystemExit(
+                "\nERROR running the following docker command:\n{}\nDocker error code: {}\nstderr: {}".format(
+                    " ".join(docker_run_cmd), p.returncode, err))
 
 
 if __name__ == "__main__":

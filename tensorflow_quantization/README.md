@@ -1,6 +1,6 @@
 # Quantization Tools
 
-These tools helps to transform TensorFlow graphs trained with 32-bit floating point precision to graphs with 8-bit integer precision.
+These tools help to transform TensorFlow graphs trained with 32-bit floating point precision to graphs with 8-bit integer precision.
 This document describes how to build and use these tools.
 
 ## Prerequisites

@@ -181,7 +181,6 @@ tf_cc_test(
         "flatten_atrous_test.cc",
         "fold_batch_norms_test.cc",
         "fold_constants_test.cc",
-        "fold_convolutionwithbias_mul_test.cc",
         "fold_old_batch_norms_test.cc",
         "fold_subdivmul_batch_norms_test.cc",
         "freeze_requantization_ranges_test.cc",

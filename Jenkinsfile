@@ -49,5 +49,14 @@ node() {
             make integration_test
             """
         }
+
+        stage('C++ tests') {
+            sh """
+            #!/bin/bash -x
+            set -e
+
+            docker run --rm -e https_proxy -e http_proxy -e HTTPS_PROXY -e HTTP_PROXY -e no_proxy -e NO_PROXY quantization:latest /bin/bash -c "bazel test tensorflow/tools/graph_transforms:all"
+            """
+        }
     }
 }

@@ -89,6 +89,10 @@ integration_test:
 	@echo "Running integration tests..."
 	@cd tests && bash launch_test.sh
 
+cpp_test:
+	@echo "SHOULD ONLY BE RAN WHERE TENSORFLOW CPP CODE IS COMPILED, IN TENSORFLOW WORKSPACE"
+	bazel test tensorflow/tools/graph_transforms:all
+
 test: lint unit_test
 
 test2: lint2 unit_test2

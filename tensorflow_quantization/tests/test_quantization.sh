@@ -179,6 +179,27 @@ function inceptionv4() {
     OUTPUT_GRAPH=${OUTPUT}/${model}_int8_final_graph.pb test_output_graph
 }
 
+function inception_resnet_v2() {
+    OUTPUT_NODES='InceptionResnetV2/Logits/Predictions'
+
+    # Download the FP32 pre-trained model
+    cd ${OUTPUT}
+    wget https://storage.googleapis.com/intel-optimized-tensorflow/models/inception_resnet_v2_fp32_pretrained_model.pb
+    FP32_MODEL=${OUTPUT}/inception_resnet_v2_fp32_pretrained_model.pb
+
+    EXTRA_ARG="--excluded_ops=MaxPool,AvgPool,ConcatV2"
+    # to generate the logging graph
+    TRANSFORMS1='insert_logging(op=RequantizationRange, show_name=true, message="__requant_min_max:")'
+
+    # to freeze the dynamic range graph
+    TRANSFORMS2='freeze_requantization_ranges(min_max_log_file="/workspace/tests/calibration_data/inception_resnet_v2_min_max_log.txt")'
+
+    # to rerange quantize concat and get the fused optimized final int8 graph
+    TRANSFORMS3='rerange_quantized_concat fuse_quantized_conv_and_requantize strip_unused_nodes'
+
+    run_quantize_model_test
+}
+
 function rfcn(){
     OUTPUT_NODES='detection_boxes,detection_scores,num_detections,detection_classes'
 
@@ -256,7 +277,7 @@ function resnet50(){
 }
 
 # Run all models, when new model is added append model name in alphabetical order below
-for model in faster_rcnn inceptionv4 rfcn resnet101 resnet50
+for model in faster_rcnn inceptionv4 inception_resnet_v2 rfcn resnet101 resnet50
 do
     echo ""
     echo "Running Quantization Test for model: ${model}"

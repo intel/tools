@@ -147,6 +147,41 @@ function faster_rcnn(){
     run_quantize_model_test
 }
 
+function inceptionv3() {
+    OUTPUT_NODES='predict'
+
+    # Download the FP32 pre-trained model
+    cd ${OUTPUT}
+    wget https://storage.googleapis.com/intel-optimized-tensorflow/models/inceptionv3_fp32_pretrained_model.pb
+    FP32_MODEL=${OUTPUT}/inceptionv3_fp32_pretrained_model.pb
+    
+    EXTRA_ARG="--excluded_ops=MaxPool,AvgPool,ConcatV2"
+
+    # to generate the logging graph
+    TRANSFORMS1='insert_logging(op=RequantizationRange, show_name=true, message="__requant_min_max:")'
+
+    # to freeze the dynamic range graph
+    TRANSFORMS2='freeze_requantization_ranges(min_max_log_file="/workspace/tests/calibration_data/inceptionv3_min_max_log.txt")'
+
+    # to get the fused and optimized final int8 graph
+    TRANSFORMS3='fuse_quantized_conv_and_requantize strip_unused_nodes'
+
+    run_quantize_model_test
+
+    # to rerange quantize concat
+    TRANSFORMS4='rerange_quantized_concat'
+
+    # run fourth transform separately since run_quantize_model_test just runs three
+    bazel-bin/tensorflow/tools/graph_transforms/transform_graph \
+    --in_graph=${OUTPUT}/${model}_int8_final_fused_graph.pb \
+    --outputs=${OUTPUT_NODES} \
+    --out_graph=${OUTPUT}/${model}_int8_final_graph.pb \
+    --transforms="${TRANSFORMS4}" \
+    --output_as_text=false
+
+    OUTPUT_GRAPH=${OUTPUT}/${model}_int8_final_graph.pb test_output_graph
+}
+
 function inceptionv4() {
     OUTPUT_NODES='InceptionV4/Logits/Predictions'
 
@@ -277,7 +312,8 @@ function resnet50(){
 }
 
 # Run all models, when new model is added append model name in alphabetical order below
-for model in faster_rcnn inceptionv4 inception_resnet_v2 rfcn resnet101 resnet50
+
+for model in faster_rcnn inceptionv3 inceptionv4 inception_resnet_v2 rfcn resnet101 resnet50
 do
     echo ""
     echo "Running Quantization Test for model: ${model}"

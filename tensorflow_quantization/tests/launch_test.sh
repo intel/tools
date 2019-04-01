@@ -29,7 +29,7 @@ LOGS=${OUTPUT}/test_logs.txt
 # so we need to clean up and re-create new one for next test run.
 if [ -d ${OUTPUT} ]
 then
-    rm -rf ${OUTPUT}
+    sudo rm -rf ${OUTPUT}
 fi
 
 mkdir ${OUTPUT}
@@ -71,7 +71,7 @@ then
         exit 1
     else
         echo "Test scripts run completed SUCCESSFULLY !!" | tee -a ${LOGS}
-        rm -rf ${OUTPUT}
+        sudo rm -rf ${OUTPUT}
     fi
 else
     echo "Error: Quantization tools docker build FAILED " | tee -a ${LOGS}

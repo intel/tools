@@ -311,9 +311,41 @@ function resnet50(){
     run_quantize_model_test
 }
 
+function ssd_mobilenet(){
+    OUTPUT_NODES='detection_boxes,detection_scores,num_detections,detection_classes'
+
+    # Download the FP32 pre-trained model
+    cd ${OUTPUT}
+    wget http://download.tensorflow.org/models/object_detection/ssd_mobilenet_v1_coco_2018_01_28.tar.gz
+    tar -xzvf ssd_mobilenet_v1_coco_2018_01_28.tar.gz
+
+    cd ${TF_WORKSPACE}
+
+    # optimize fp32 frozen graph
+    bazel-bin/tensorflow/tools/graph_transforms/transform_graph \
+    --in_graph=${OUTPUT}/ssd_mobilenet_v1_coco_2018_01_28/frozen_inference_graph.pb \
+    --out_graph=${OUTPUT}/${model}_optimized_fp32_graph.pb \
+    --inputs='image_tensor' \
+    --outputs=${OUTPUT_NODES} \
+    --transforms='strip_unused_nodes remove_nodes(op=Identity, op=CheckNumerics) fold_constants(ignore_errors=true) fold_batch_norms fold_old_batch_norms'
+
+    FP32_MODEL=${OUTPUT}/${model}_optimized_fp32_graph.pb
+
+    # to generate the logging graph
+    TRANSFORMS1='insert_logging(op=RequantizationRange, show_name=true, message="__requant_min_max:")'
+
+    # to freeze the dynamic range graph
+    TRANSFORMS2='freeze_requantization_ranges(min_max_log_file="/workspace/tests/calibration_data/ssd_mobilenet_min_max_log.txt")'
+
+    # to get the fused and optimized final int8 graph
+    TRANSFORMS3='fuse_quantized_conv_and_requantize strip_unused_nodes'
+
+    run_quantize_model_test
+}
+
 # Run all models, when new model is added append model name in alphabetical order below
 
-for model in faster_rcnn inceptionv3 inceptionv4 inception_resnet_v2 rfcn resnet101 resnet50
+for model in faster_rcnn inceptionv3 inceptionv4 inception_resnet_v2 rfcn resnet101 resnet50 ssd_mobilenet
 do
     echo ""
     echo "Running Quantization Test for model: ${model}"

@@ -74,6 +74,9 @@ We also assume that you are in the TensorFlow root directory (`/workspace/tensor
       [Transform Reference](https://github.com/tensorflow/tensorflow/tree/master/tensorflow/tools/graph_transforms#transform-reference)
       and the [Graph Transforms README](/tensorflow_quantization/graph_transforms/README.md)
       for descriptions of the different `--transforms` options.
+      
+     **Note:**  The `transform_graph` tool also has transforms called [quantize_weights](https://github.com/tensorflow/tensorflow/tree/master/tensorflow/tools/graph_transforms#quantize_weights) and [quantize_nodes](https://github.com/tensorflow/tensorflow/tree/master/tensorflow/tools/graph_transforms#quantize_nodes). These should not be used. Instead, Intel provides a custom `quantize_graph.py` script (step 5) which will transform the graph to include the MKL-DNN optimized operations.
+     
     ```
         $ bazel-bin/tensorflow/tools/graph_transforms/transform_graph \
          --in_graph=/workspace/quantization/freezed_graph.pb\

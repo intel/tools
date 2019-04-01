@@ -1,6 +1,6 @@
-# Intel AI Quantization Tools
+# Intel AI Quantization Tools for TensorFlow
 
-> Note: Intel AI Quantization Tools are experimental and under active development.
+> Note: Intel AI Quantization Tools for TensorFlow are experimental and under active development.
 
 
 This repo contains tools to ease the data scientist's work.

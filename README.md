@@ -1,6 +1,11 @@
-# Intel Tools
+# Intel AI Quantization Tools for TensorFlow
 
-This repo contains tools to ease datascientist work.
+> Note: Intel AI Quantization Tools for TensorFlow are experimental and under active development.
 
-* [Tensorflow Quantization](/tensorflow-quantization/)
 
+This repo contains tools to ease the data scientist's work.
+
+* [Tensorflow Quantization](tensorflow_quantization/README.md#quantization-tools):
+  Post-training model quantization and optimization can help reduce the size of your model
+  and run inference faster, while maintaining accuracy.
+  

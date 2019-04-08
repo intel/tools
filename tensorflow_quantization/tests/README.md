@@ -6,7 +6,7 @@ The `launch_test.sh` script sets up the integration test environment and starts 
 To launch the test script:
 ```
 # Clone the quantization tools branch
-$ git clone https://github.com/NervanaSystems/tools.git
+$ git clone https://github.com/IntelAI/tools.git
 $ cd tools/tensorflow_quantization
 $ make integration_test
 ``` 

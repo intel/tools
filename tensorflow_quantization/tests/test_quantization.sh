@@ -115,22 +115,23 @@ function faster_rcnn(){
 
     # Download the FP32 pre-trained model
     cd ${OUTPUT}
-    wget https://storage.googleapis.com/intel-optimized-tensorflow/models/faster_rcnn_resnet50_fp32_coco_pretrained_model.tar.gz
-    tar -xzvf faster_rcnn_resnet50_fp32_coco_pretrained_model.tar.gz
+    FP32_PRE_TRAINED_MODEL="faster_rcnn_resnet50_fp32_coco"
+    wget -q https://storage.googleapis.com/intel-optimized-tensorflow/models/${FP32_PRE_TRAINED_MODEL}_pretrained_model.tar.gz
+    tar -xzvf ${FP32_PRE_TRAINED_MODEL}*.tar.gz
 
     cd ${TF_WORKSPACE}
 
     # optimize fp32 frozen graph
     bazel-bin/tensorflow/tools/graph_transforms/transform_graph \
-    --in_graph=${OUTPUT}/faster_rcnn_resnet50_fp32_coco/frozen_inference_graph.pb \
+    --in_graph=${OUTPUT}/${FP32_PRE_TRAINED_MODEL}/frozen_inference_graph.pb \
     --out_graph=${OUTPUT}/${model}_optimized_fp32_graph.pb \
     --inputs='image_tensor' \
     --outputs=${OUTPUT_NODES} \
     --transforms='strip_unused_nodes remove_nodes(op=Identity, op=CheckNumerics) fold_constants(ignore_errors=true) fold_batch_norms fold_old_batch_norms'
 
     # Remove downloaded pre-trained model .gz and directory
-    rm -rf ${OUTPUT}/faster_rcnn_resnet50_fp32_coco
-    rm -rf ${OUTPUT}/faster_rcnn_resnet50_fp32_coco_pretrained_model.tar.gz
+    rm -rf ${OUTPUT}/${FP32_PRE_TRAINED_MODEL}
+    rm -rf ${OUTPUT}/${FP32_PRE_TRAINED_MODEL}*.tar.gz
 
     MODEL_NAME='FasterRCNN'
     FP32_MODEL=${OUTPUT}/${model}_optimized_fp32_graph.pb
@@ -152,9 +153,10 @@ function inceptionv3() {
 
     # Download the FP32 pre-trained model
     cd ${OUTPUT}
-    wget https://storage.googleapis.com/intel-optimized-tensorflow/models/inceptionv3_fp32_pretrained_model.pb
-    FP32_MODEL=${OUTPUT}/inceptionv3_fp32_pretrained_model.pb
-    
+    FP32_MODEL="inceptionv3_fp32_pretrained_model.pb"
+    wget -q https://storage.googleapis.com/intel-optimized-tensorflow/models/${FP32_MODEL}
+    FP32_MODEL=${OUTPUT}/${FP32_MODEL}
+
     EXTRA_ARG="--excluded_ops=MaxPool,AvgPool,ConcatV2"
 
     # to generate the logging graph
@@ -187,8 +189,9 @@ function inceptionv4() {
 
     # Download the FP32 pre-trained model
     cd ${OUTPUT}
-    wget https://storage.googleapis.com/intel-optimized-tensorflow/models/inceptionv4_fp32_pretrained_model.pb
-    FP32_MODEL=${OUTPUT}/inceptionv4_fp32_pretrained_model.pb
+    FP32_MODEL="inceptionv4_fp32_pretrained_model.pb"
+    wget -q https://storage.googleapis.com/intel-optimized-tensorflow/models/${FP32_MODEL}
+    FP32_MODEL=${OUTPUT}/${FP32_MODEL}
 
     # to generate the logging graph
     TRANSFORMS1='insert_logging(op=RequantizationRange, show_name=true, message="__requant_min_max:")'
@@ -219,8 +222,9 @@ function inception_resnet_v2() {
 
     # Download the FP32 pre-trained model
     cd ${OUTPUT}
-    wget https://storage.googleapis.com/intel-optimized-tensorflow/models/inception_resnet_v2_fp32_pretrained_model.pb
-    FP32_MODEL=${OUTPUT}/inception_resnet_v2_fp32_pretrained_model.pb
+    FP32_MODEL="inception_resnet_v2_fp32_pretrained_model"
+    wget -q https://storage.googleapis.com/intel-optimized-tensorflow/models/${FP32_MODEL}.pb
+    FP32_MODEL=${OUTPUT}/${FP32_MODEL}.pb
 
     EXTRA_ARG="--excluded_ops=MaxPool,AvgPool,ConcatV2"
     # to generate the logging graph
@@ -240,20 +244,21 @@ function rfcn(){
 
     # Download the FP32 pre-trained model
     cd ${OUTPUT}
-    wget https://storage.googleapis.com/intel-optimized-tensorflow/models/rfcn_resnet101_fp32_coco_pretrained_model.tar.gz
-    tar -xzvf rfcn_resnet101_fp32_coco_pretrained_model.tar.gz
+    FP32_PRE_TRAINED_MODEL="rfcn_resnet101_fp32_coco"
+    wget -q https://storage.googleapis.com/intel-optimized-tensorflow/models/${FP32_PRE_TRAINED_MODEL}_pretrained_model.tar.gz
+    tar -xzvf ${FP32_PRE_TRAINED_MODEL}*.tar.gz
 
     # Remove the Identity ops from the FP32 frozen graph
     cd ${TF_WORKSPACE}
     bazel-bin/tensorflow/tools/graph_transforms/transform_graph \
-    --in_graph=${OUTPUT}/rfcn_resnet101_fp32_coco/frozen_inference_graph.pb \
+    --in_graph=${OUTPUT}/${FP32_PRE_TRAINED_MODEL}/frozen_inference_graph.pb \
     --out_graph=${OUTPUT}/${model}_optimized_fp32_graph.pb \
     --outputs=${OUTPUT_NODES} \
     --transforms='remove_nodes(op=Identity, op=CheckNumerics) fold_constants(ignore_errors=true)'
 
     # Remove downloaded pre-trained model .gz and directory
-    rm -rf ${OUTPUT}/rfcn_resnet101_fp32_coco
-    rm -rf ${OUTPUT}/rfcn_resnet101_fp32_coco_pretrained_model.tar.gz
+    rm -rf ${OUTPUT}/${FP32_PRE_TRAINED_MODEL}
+    rm -rf ${OUTPUT}/${FP32_PRE_TRAINED_MODEL}*.tar.gz
 
     FP32_MODEL=${OUTPUT}/${model}_optimized_fp32_graph.pb
     EXTRA_ARG="--excluded_ops=ConcatV2"
@@ -276,8 +281,9 @@ function resnet101(){
 
     # Download the FP32 pre-trained model
     cd ${OUTPUT}
-    wget https://storage.googleapis.com/intel-optimized-tensorflow/models/resnet101_fp32_pretrained_model.pb
-    FP32_MODEL=${OUTPUT}/resnet101_fp32_pretrained_model.pb
+    FP32_MODEL="resnet101_fp32_pretrained_model.pb"
+    wget https://storage.googleapis.com/intel-optimized-tensorflow/models/${FP32_MODEL}
+    FP32_MODEL=${OUTPUT}/${FP32_MODEL}
 
     # to generate the logging graph
     TRANSFORMS1='mkl_fuse_pad_and_conv'
@@ -296,8 +302,9 @@ function resnet50(){
 
     # Download the FP32 pre-trained model
     cd ${OUTPUT}
-    wget https://storage.googleapis.com/intel-optimized-tensorflow/models/resnet50_fp32_pretrained_model.pb
-    FP32_MODEL=${OUTPUT}/resnet50_fp32_pretrained_model.pb
+    FP32_MODEL="resnet50_fp32_pretrained_model_pretrained_model.pb"
+    wget -q https://storage.googleapis.com/intel-optimized-tensorflow/models/${FP32_MODEL}
+    FP32_MODEL=${OUTPUT}/${FP32_MODEL}
 
     # to generate the logging graph
     TRANSFORMS1='insert_logging(op=RequantizationRange, show_name=true, message="__requant_min_max:")'
@@ -316,14 +323,15 @@ function ssd_mobilenet(){
 
     # Download the FP32 pre-trained model
     cd ${OUTPUT}
-    wget http://download.tensorflow.org/models/object_detection/ssd_mobilenet_v1_coco_2018_01_28.tar.gz
-    tar -xzvf ssd_mobilenet_v1_coco_2018_01_28.tar.gz
+    FP32_PRE_TRAINED_MODEL="ssd_mobilenet_v1_coco_2018_01_28"
+    wget -q http://download.tensorflow.org/models/object_detection/${FP32_PRE_TRAINED_MODEL}.tar.gz
+    tar -xzvf ${FP32_PRE_TRAINED_MODEL}*.tar.gz
 
     cd ${TF_WORKSPACE}
 
     # optimize fp32 frozen graph
     bazel-bin/tensorflow/tools/graph_transforms/transform_graph \
-    --in_graph=${OUTPUT}/ssd_mobilenet_v1_coco_2018_01_28/frozen_inference_graph.pb \
+    --in_graph=${OUTPUT}/${FP32_PRE_TRAINED_MODEL}/frozen_inference_graph.pb \
     --out_graph=${OUTPUT}/${model}_optimized_fp32_graph.pb \
     --inputs='image_tensor' \
     --outputs=${OUTPUT_NODES} \

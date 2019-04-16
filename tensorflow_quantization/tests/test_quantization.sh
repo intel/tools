@@ -118,23 +118,26 @@ function faster_rcnn(){
 
     # Download the FP32 pre-trained model
     cd ${OUTPUT}
-    FP32_PRE_TRAINED_MODEL="faster_rcnn_resnet50_fp32_coco"
-    wget -q ${INTEL_MODELS_BUCKET}/${FP32_PRE_TRAINED_MODEL}_pretrained_model.tar.gz
-    tar -xzvf ${FP32_PRE_TRAINED_MODEL}*.tar.gz
+    FP32_MODEL_DIR="faster_rcnn_resnet50_fp32_coco"
+    FP32_MODEL_TAR="faster_rcnn_resnet50_fp32_coco_pretrained_model.tar.gz"
+
+    wget -q ${INTEL_MODELS_BUCKET}/${FP32_MODEL_TAR}
+    tar -xzvf ${FP32_MODEL_TAR}
+    FP32_MODEL=${OUTPUT}/${FP32_MODEL_DIR}/frozen_inference_graph.pb
 
     cd ${TF_WORKSPACE}
 
     # optimize fp32 frozen graph
     bazel-bin/tensorflow/tools/graph_transforms/transform_graph \
-    --in_graph=${OUTPUT}/${FP32_PRE_TRAINED_MODEL}/frozen_inference_graph.pb \
+    --in_graph=${FP32_MODEL} \
     --out_graph=${OUTPUT}/${model}_optimized_fp32_graph.pb \
     --inputs='image_tensor' \
     --outputs=${OUTPUT_NODES} \
     --transforms='strip_unused_nodes remove_nodes(op=Identity, op=CheckNumerics) fold_constants(ignore_errors=true) fold_batch_norms fold_old_batch_norms'
 
     # Remove downloaded pre-trained model .gz and directory
-    rm -rf ${OUTPUT}/${FP32_PRE_TRAINED_MODEL}
-    rm -rf ${OUTPUT}/${FP32_PRE_TRAINED_MODEL}*.tar.gz
+    rm -rf ${OUTPUT}/${FP32_MODEL_DIR}
+    rm -rf ${OUTPUT}/${FP32_MODEL_TAR}
 
     MODEL_NAME='FasterRCNN'
     FP32_MODEL=${OUTPUT}/${model}_optimized_fp32_graph.pb
@@ -247,21 +250,23 @@ function rfcn(){
 
     # Download the FP32 pre-trained model
     cd ${OUTPUT}
-    FP32_PRE_TRAINED_MODEL="rfcn_resnet101_fp32_coco"
-    wget -q ${INTEL_MODELS_BUCKET}/${FP32_PRE_TRAINED_MODEL}_pretrained_model.tar.gz
-    tar -xzvf ${FP32_PRE_TRAINED_MODEL}*.tar.gz
+    FP32_MODEL_DIR="rfcn_resnet101_fp32_coco"
+    FP32_MODEL_TAR="rfcn_resnet101_fp32_coco_pretrained_model.tar.gz"
+    wget -q ${INTEL_MODELS_BUCKET}/${FP32_MODEL_TAR}
+    tar -xzvf ${FP32_MODEL_TAR}
+    FP32_MODEL=${OUTPUT}/${FP32_MODEL_DIR}/frozen_inference_graph.pb
 
     # Remove the Identity ops from the FP32 frozen graph
     cd ${TF_WORKSPACE}
     bazel-bin/tensorflow/tools/graph_transforms/transform_graph \
-    --in_graph=${OUTPUT}/${FP32_PRE_TRAINED_MODEL}/frozen_inference_graph.pb \
+    --in_graph=${FP32_MODEL} \
     --out_graph=${OUTPUT}/${model}_optimized_fp32_graph.pb \
     --outputs=${OUTPUT_NODES} \
     --transforms='remove_nodes(op=Identity, op=CheckNumerics) fold_constants(ignore_errors=true)'
 
     # Remove downloaded pre-trained model .gz and directory
-    rm -rf ${OUTPUT}/${FP32_PRE_TRAINED_MODEL}
-    rm -rf ${OUTPUT}/${FP32_PRE_TRAINED_MODEL}*.tar.gz
+    rm -rf ${OUTPUT}/${FP32_MODEL_DIR}
+    rm -rf ${OUTPUT}/${FP32_MODEL_TAR}
 
     FP32_MODEL=${OUTPUT}/${model}_optimized_fp32_graph.pb
     EXTRA_ARG="--excluded_ops=ConcatV2"
@@ -326,19 +331,25 @@ function ssd_mobilenet(){
 
     # Download the FP32 pre-trained model
     cd ${OUTPUT}
-    FP32_PRE_TRAINED_MODEL="ssd_mobilenet_v1_coco_2018_01_28"
-    wget -q http://download.tensorflow.org/models/object_detection/${FP32_PRE_TRAINED_MODEL}.tar.gz
-    tar -xzvf ${FP32_PRE_TRAINED_MODEL}*.tar.gz
+    FP32_MODEL_DIR="ssd_mobilenet_v1_coco_2018_01_28"
+    FP32_MODEL_TAR="ssd_mobilenet_v1_coco_2018_01_28.tar.gz"
+    wget -q http://download.tensorflow.org/models/object_detection/${FP32_MODEL_TAR}
+    tar -xzvf ${FP32_MODEL_TAR}
+    FP32_MODEL=${OUTPUT}/${FP32_MODEL_DIR}/frozen_inference_graph.pb
 
     cd ${TF_WORKSPACE}
 
     # optimize fp32 frozen graph
     bazel-bin/tensorflow/tools/graph_transforms/transform_graph \
-    --in_graph=${OUTPUT}/${FP32_PRE_TRAINED_MODEL}/frozen_inference_graph.pb \
+    --in_graph=${FP32_MODEL} \
     --out_graph=${OUTPUT}/${model}_optimized_fp32_graph.pb \
     --inputs='image_tensor' \
     --outputs=${OUTPUT_NODES} \
     --transforms='strip_unused_nodes remove_nodes(op=Identity, op=CheckNumerics) fold_constants(ignore_errors=true) fold_batch_norms fold_old_batch_norms'
+
+    # Remove downloaded pre-trained model .gz and directory
+    rm -rf ${OUTPUT}/${FP32_MODEL_DIR}
+    rm -rf ${OUTPUT}/${FP32_MODEL_TAR}
 
     FP32_MODEL=${OUTPUT}/${model}_optimized_fp32_graph.pb
 

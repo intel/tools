@@ -305,7 +305,7 @@ function resnet50(){
 
     # Download the FP32 pre-trained model
     cd ${OUTPUT}
-    FP32_MODEL="resnet50_fp32_pretrained_model_pretrained_model.pb"
+    FP32_MODEL="resnet50_fp32_pretrained_model.pb"
     wget -q ${INTEL_MODELS_BUCKET}/${FP32_MODEL}
     FP32_MODEL=${OUTPUT}/${FP32_MODEL}
 

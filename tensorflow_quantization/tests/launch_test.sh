@@ -29,7 +29,7 @@ LOGS=${OUTPUT}/test_logs.txt
 # so we need to clean up and re-create new one for next test run.
 if [ -d ${OUTPUT} ]
 then
-    sudo rm -rf ${OUTPUT}
+    rm -rf ${OUTPUT}
 fi
 
 mkdir ${OUTPUT}
@@ -49,11 +49,11 @@ QUANTIZATION_TAG="quantization:latest"
 echo "Building quantization tools docker image with tag: ${QUANTIZATION_TAG}" | tee -a ${LOGS}
 
 docker build -f Dockerfile \
--t  ${QUANTIZATION_TAG} \
---build-arg HTTP_PROXY=${HTTP_PROXY} \
---build-arg HTTPS_PROXY=${HTTPS_PROXY} \
---build-arg http_proxy=${http_proxy} \
---build-arg https_proxy=${https_proxy} . | tee -a ${LOGS}
+    -t  ${QUANTIZATION_TAG} \
+    --build-arg HTTP_PROXY=${HTTP_PROXY} \
+    --build-arg HTTPS_PROXY=${HTTPS_PROXY} \
+    --build-arg http_proxy=${http_proxy} \
+    --build-arg https_proxy=${https_proxy} . | tee -a ${LOGS}
 
 if [ "${PIPESTATUS[0]}" -eq "0" ]
 then
@@ -71,7 +71,7 @@ then
         exit 1
     else
         echo "Test scripts run completed SUCCESSFULLY !!" | tee -a ${LOGS}
-        sudo rm -rf ${OUTPUT}
+        rm -rf ${OUTPUT}
     fi
 else
     echo "Error: Quantization tools docker build FAILED " | tee -a ${LOGS}

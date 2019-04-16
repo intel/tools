@@ -14,11 +14,11 @@ node() {
             #!/bin/bash -x
             set -e
             # don't know OS, so trying both apt-get and yum install
-            sudo apt-get install -y python3-dev || sudo yum install -y python36-devel.x86_64
+            sudo apt-get install -y python3-dev python3-pip || sudo yum install -y python36-devel.x86_64 python-pip python36-pip
 
             # virtualenv 16.3.0 is broken do not use it
-            sudo python2 -m pip install --force-reinstall --upgrade pip virtualenv!=16.3.0 tox
-            sudo python3 -m pip install --force-reinstall --upgrade pip virtualenv!=16.3.0 tox
+            sudo python2 -m pip install --no-cache-dir --upgrade pip==19.0.3 virtualenv!=16.3.0 tox==3.8.6
+            sudo python3 -m pip install --no-cache-dir --upgrade pip==19.0.3 virtualenv!=16.3.0 tox==3.8.6
             """
         }
         stage('Style tests') {
@@ -46,7 +46,7 @@ node() {
             set -e
 
             cd tools/tensorflow_quantization
-            make integration_test
+            sudo -E make integration_test
             """
         }
 
@@ -55,7 +55,7 @@ node() {
             #!/bin/bash -x
             set -e
 
-            docker run --rm -e https_proxy -e http_proxy -e HTTPS_PROXY -e HTTP_PROXY -e no_proxy -e NO_PROXY quantization:latest /bin/bash -c "bazel test tensorflow/tools/graph_transforms:all"
+            sudo docker run --rm -e https_proxy -e http_proxy -e HTTPS_PROXY -e HTTP_PROXY -e no_proxy -e NO_PROXY quantization:latest /bin/bash -c "bazel test tensorflow/tools/graph_transforms:all"
             """
         }
     }

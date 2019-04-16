@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 #
 # Copyright (c) 2019 Intel Corporation
 #
@@ -16,7 +17,6 @@
 # SPDX-License-Identifier: EPL-2.0
 #
 
-#!/usr/bin/env bash
 set -e
 set -x
 
@@ -26,6 +26,9 @@ echo "    TF_WORKSPACE: ${TF_WORKSPACE}"
 echo "    TEST_WORKSPACE: ${TEST_WORKSPACE}"
 echo "    Mounted Volumes:"
 echo "        ${PRE_TRAINED_MODEL_DIR} mounted on: ${MOUNT_OUTPUT}"
+
+# Intel Models GCS bucket URL
+INTEL_MODELS_BUCKET="https://storage.googleapis.com/intel-optimized-tensorflow/models"
 
 # output directory for tests
 OUTPUT=${MOUNT_OUTPUT}
@@ -116,7 +119,7 @@ function faster_rcnn(){
     # Download the FP32 pre-trained model
     cd ${OUTPUT}
     FP32_PRE_TRAINED_MODEL="faster_rcnn_resnet50_fp32_coco"
-    wget -q https://storage.googleapis.com/intel-optimized-tensorflow/models/${FP32_PRE_TRAINED_MODEL}_pretrained_model.tar.gz
+    wget -q ${INTEL_MODELS_BUCKET}/${FP32_PRE_TRAINED_MODEL}_pretrained_model.tar.gz
     tar -xzvf ${FP32_PRE_TRAINED_MODEL}*.tar.gz
 
     cd ${TF_WORKSPACE}
@@ -154,7 +157,7 @@ function inceptionv3() {
     # Download the FP32 pre-trained model
     cd ${OUTPUT}
     FP32_MODEL="inceptionv3_fp32_pretrained_model.pb"
-    wget -q https://storage.googleapis.com/intel-optimized-tensorflow/models/${FP32_MODEL}
+    wget -q ${INTEL_MODELS_BUCKET}/${FP32_MODEL}
     FP32_MODEL=${OUTPUT}/${FP32_MODEL}
 
     EXTRA_ARG="--excluded_ops=MaxPool,AvgPool,ConcatV2"
@@ -190,7 +193,7 @@ function inceptionv4() {
     # Download the FP32 pre-trained model
     cd ${OUTPUT}
     FP32_MODEL="inceptionv4_fp32_pretrained_model.pb"
-    wget -q https://storage.googleapis.com/intel-optimized-tensorflow/models/${FP32_MODEL}
+    wget -q ${INTEL_MODELS_BUCKET}/${FP32_MODEL}
     FP32_MODEL=${OUTPUT}/${FP32_MODEL}
 
     # to generate the logging graph
@@ -222,9 +225,9 @@ function inception_resnet_v2() {
 
     # Download the FP32 pre-trained model
     cd ${OUTPUT}
-    FP32_MODEL="inception_resnet_v2_fp32_pretrained_model"
-    wget -q https://storage.googleapis.com/intel-optimized-tensorflow/models/${FP32_MODEL}.pb
-    FP32_MODEL=${OUTPUT}/${FP32_MODEL}.pb
+    FP32_MODEL="inception_resnet_v2_fp32_pretrained_model.pb"
+    wget -q ${INTEL_MODELS_BUCKET}/${FP32_MODEL}
+    FP32_MODEL=${OUTPUT}/${FP32_MODEL}
 
     EXTRA_ARG="--excluded_ops=MaxPool,AvgPool,ConcatV2"
     # to generate the logging graph
@@ -245,7 +248,7 @@ function rfcn(){
     # Download the FP32 pre-trained model
     cd ${OUTPUT}
     FP32_PRE_TRAINED_MODEL="rfcn_resnet101_fp32_coco"
-    wget -q https://storage.googleapis.com/intel-optimized-tensorflow/models/${FP32_PRE_TRAINED_MODEL}_pretrained_model.tar.gz
+    wget -q ${INTEL_MODELS_BUCKET}/${FP32_PRE_TRAINED_MODEL}_pretrained_model.tar.gz
     tar -xzvf ${FP32_PRE_TRAINED_MODEL}*.tar.gz
 
     # Remove the Identity ops from the FP32 frozen graph
@@ -282,7 +285,7 @@ function resnet101(){
     # Download the FP32 pre-trained model
     cd ${OUTPUT}
     FP32_MODEL="resnet101_fp32_pretrained_model.pb"
-    wget https://storage.googleapis.com/intel-optimized-tensorflow/models/${FP32_MODEL}
+    wget -q ${INTEL_MODELS_BUCKET}/${FP32_MODEL}
     FP32_MODEL=${OUTPUT}/${FP32_MODEL}
 
     # to generate the logging graph
@@ -303,7 +306,7 @@ function resnet50(){
     # Download the FP32 pre-trained model
     cd ${OUTPUT}
     FP32_MODEL="resnet50_fp32_pretrained_model_pretrained_model.pb"
-    wget -q https://storage.googleapis.com/intel-optimized-tensorflow/models/${FP32_MODEL}
+    wget -q ${INTEL_MODELS_BUCKET}/${FP32_MODEL}
     FP32_MODEL=${OUTPUT}/${FP32_MODEL}
 
     # to generate the logging graph

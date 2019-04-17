@@ -723,67 +723,78 @@ class GraphRewriter(object):
             return
         self.state.already_visited[current_node.name] = True
 
-        for i, input_node_name in enumerate(current_node.input):
-            quantize_input = False
-            if current_node.op in ("MatMul", "Conv2D", "BiasAdd", "MaxPool",
-                                   "AvgPool", "Relu", "Relu6",
-                                   "BatchNormWithGlobalNormalization"):
-                quantize_input = True
-            elif current_node.op == "Concat" and i > 0:
-                quantize_input = (
-                    dtypes.as_dtype(current_node.attr["T"].type) == dtypes.float32)
-            elif current_node.op == "Reshape" and i == 0:
-                quantize_input = (
-                    dtypes.as_dtype(current_node.attr["T"].type) == dtypes.float32)
+        copy_without_eightbitize = True
+        if (current_node.op not in self.excluded_ops) and (current_node.name not in self.excluded_nodes):
+            # check if input nodes need to be eightbitized
+            for i, input_node_name in enumerate(current_node.input):
+                quantize_input = False
+                if current_node.op in ("MatMul", "Conv2D", "BiasAdd", "MaxPool",
+                                       "AvgPool", "Relu", "Relu6",
+                                       "BatchNormWithGlobalNormalization"):
+                    quantize_input = True
+                elif current_node.op == "Concat" and i > 0:
+                    quantize_input = (
+                        dtypes.as_dtype(current_node.attr["T"].type) == dtypes.float32)
+                elif current_node.op == "Reshape" and i == 0:
+                    quantize_input = (
+                        dtypes.as_dtype(current_node.attr["T"].type) == dtypes.float32)
 
-            self.state.output_node_stack.append((current_node, i, quantize_input))
+                self.state.output_node_stack.append((current_node, i, quantize_input))
 
-            input_node_name = node_name_from_input(input_node_name)
-            input_node = self.nodes_map[input_node_name]
-            self.eightbitize_nodes_recursively(input_node)
+                input_node_name = node_name_from_input(input_node_name)
+                input_node = self.nodes_map[input_node_name]
+                self.eightbitize_nodes_recursively(input_node)
 
-            self.state.output_node_stack.pop()
+                self.state.output_node_stack.pop()
 
-        if current_node.op == "MatMul":
-            self.eightbitize_mat_mul_node(current_node)
-        elif current_node.op == "Conv2D":
-            self.eightbitize_conv_node(current_node)
-        elif current_node.op == "BiasAdd":
-            self.eightbitize_bias_add_node(current_node)
-        elif current_node.op == "MaxPool" or current_node.op == "AvgPool":
-            self.eightbitize_single_input_tensor_node(current_node,
-                                                      self.add_pool_function)
-        elif current_node.op == "Relu" or current_node.op == "Relu6":
-            self.eightbitize_single_input_tensor_node(current_node,
-                                                      self.add_relu_function)
-        elif (current_node.op == "Concat" and
-              dtypes.as_dtype(current_node.attr["T"].type) == dtypes.float32):
-            self.eightbitize_concat_node(current_node)
-        elif current_node.op == "BatchNormWithGlobalNormalization":
-            self.eightbitize_batch_norm_node(current_node)
-        elif (current_node.op == "Reshape" and
-              dtypes.as_dtype(current_node.attr["T"].type) == dtypes.float32):
-            self.eightbitize_reshape_node(current_node)
-        elif (self.input_range and
-              current_node.op in ("Placeholder", "PlaceholderV2")):
-            self.eightbitize_placeholder_node(current_node)
-        elif current_node.op == "FakeQuantWithMinMaxVars":
-            # It will have been merged into the underlying node.
-            pass
-        elif current_node.op == "Const":
-            if self.should_quantize_const(current_node):
-                for n in quantize_weight_eightbit(current_node, b"MIN_FIRST"):
-                    self.add_output_graph_node(n)
-            else:
-                new_node = node_def_pb2.NodeDef()
-                new_node.CopyFrom(current_node)
-                self.add_output_graph_node(new_node)
+            if current_node.op == "MatMul":
+                self.eightbitize_mat_mul_node(current_node)
+                copy_without_eightbitize = False
+            elif current_node.op == "Conv2D":
+                self.eightbitize_conv_node(current_node)
+                copy_without_eightbitize = False
+            elif current_node.op == "BiasAdd":
+                self.eightbitize_bias_add_node(current_node)
+                copy_without_eightbitize = False
+            elif current_node.op == "MaxPool" or current_node.op == "AvgPool":
+                self.eightbitize_single_input_tensor_node(current_node,
+                                                          self.add_pool_function)
+                copy_without_eightbitize = False
+            elif current_node.op == "Relu" or current_node.op == "Relu6":
+                self.eightbitize_single_input_tensor_node(current_node,
+                                                          self.add_relu_function)
+                copy_without_eightbitize = False
+            elif (current_node.op == "Concat" and
+                  dtypes.as_dtype(current_node.attr["T"].type) == dtypes.float32):
+                self.eightbitize_concat_node(current_node)
+                copy_without_eightbitize = False
+            elif current_node.op == "BatchNormWithGlobalNormalization":
+                self.eightbitize_batch_norm_node(current_node)
+                copy_without_eightbitize = False
+            elif (current_node.op == "Reshape" and
+                  dtypes.as_dtype(current_node.attr["T"].type) == dtypes.float32):
+                self.eightbitize_reshape_node(current_node)
+                copy_without_eightbitize = False
+            elif (self.input_range and
+                  current_node.op in ("Placeholder", "PlaceholderV2")):
+                self.eightbitize_placeholder_node(current_node)
+                copy_without_eightbitize = False
+            elif current_node.op == "FakeQuantWithMinMaxVars":
+                # It will have been merged into the underlying node.
+                copy_without_eightbitize = False
+                pass
+            elif current_node.op == "Const":
+                if self.should_quantize_const(current_node):
+                    for n in quantize_weight_eightbit(current_node, b"MIN_FIRST"):
+                        self.add_output_graph_node(n)
+                    copy_without_eightbitize = False
+            ###################################################################
+            # Note: if more cases are added here, you may need to update the op
+            # name lists in the loop over children at the start of the function.
+            ###################################################################
 
-        ###################################################################
-        # Note: if more cases are added here, you may need to update the op
-        # name lists in the loop over children at the start of the function.
-        ###################################################################
-        else:
+        if copy_without_eightbitize:
+            # didn't eightbitize the node in the above code, copy it to the new graph
             new_node = node_def_pb2.NodeDef()
             new_node.CopyFrom(current_node)
             self.add_output_graph_node(new_node)

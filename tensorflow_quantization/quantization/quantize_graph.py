@@ -724,7 +724,8 @@ class GraphRewriter(object):
         self.state.already_visited[current_node.name] = True
 
         copy_without_eightbitize = True
-        if (current_node.op not in self.excluded_ops) and (current_node.name not in self.excluded_nodes):
+        if (self.excluded_ops is None or current_node.op not in self.excluded_ops) and \
+            (self.excluded_nodes is None or current_node.name not in self.excluded_nodes):
             # check if input nodes need to be eightbitized
             for i, input_node_name in enumerate(current_node.input):
                 quantize_input = False
@@ -1939,7 +1940,6 @@ def main(unused_args):
     excluded_nodes = None
     if (FLAGS.excluded_nodes is not None):
         excluded_nodes = FLAGS.excluded_nodes.split(",")
-
     rewriter = GraphRewriter(tf_graph, FLAGS.mode,
                              quantized_input_range, fallback_quantization_range,
                              FLAGS.intel_cpu_eightbitize, excluded_ops=excluded_ops,

@@ -71,7 +71,6 @@ then
         exit 1
     else
         echo "Test scripts run completed SUCCESSFULLY !!" | tee -a ${LOGS}
-        rm -rf ${OUTPUT}
     fi
 else
     echo "Error: Quantization tools docker build FAILED " | tee -a ${LOGS}

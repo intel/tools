@@ -16,7 +16,9 @@
 # SPDX-License-Identifier: EPL-2.0
 #
 
-FROM intelaipg/intel-optimized-tensorflow:nightly-latestprs-bdw as binary_build
+ARG BASE_IMAGE_ORG=intelaipg/intel-optimized-tensorflow
+ARG BASE_IMAGE_TAG=nightly-latestprs-bdw
+FROM ${BASE_IMAGE_ORG}:${BASE_IMAGE_TAG}
 
 # Using 2.0-aplha, otherwise quantization tools bazel build fails.
 ARG TF_BUILD_VERSION=v2.0.0-alpha0

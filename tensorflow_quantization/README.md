@@ -23,7 +23,14 @@ This document describes how to build and use these tools.
         --build-arg https_proxy=${https_proxy} \
         -t quantization:latest -f Dockerfile .
    ```
+ To build quantization tools based on different `BASE_IMAGE_ORG` or `BASE_IMAGE_TAG`, append below `--build-args` during `docker build`.
 
+>NOTE:
+>The quantization tools build requires bazel version >= `0.19.2` and `Tensorflow`, Please make sure `BASE_IMAGE` already includes those dependencies.
+   ```
+        --build-arg BASE_IMAGE_ORG=<new_base_image_org>
+        --build-arg BASE_IMAGE_TAG=<new_base_image_tag>
+   ```
 ## Start quantization process
   Launch quantization script `launch_quantization.py` by providing args as below,
   this will get user into container environment (`/workspace/tensorflow/`) with quantization tools.

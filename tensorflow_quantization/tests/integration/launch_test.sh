@@ -20,7 +20,9 @@
 set -e
 set -x
 
-cd ../
+# To find Dockerfile
+cd ../../
+
 TF_REPO=$(pwd)
 OUTPUT=${TF_REPO}/output
 LOGS=${OUTPUT}/test_logs.txt

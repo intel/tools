@@ -86,7 +86,7 @@ unit_test3:
 
 integration_test:
 	@echo "Running integration tests..."
-	@cd tests && bash launch_test.sh
+	@cd tests/integration && bash launch_test.sh
 
 cpp_test:
 	@echo "SHOULD ONLY BE RAN WHERE TENSORFLOW CPP CODE IS COMPILED, IN TENSORFLOW WORKSPACE"

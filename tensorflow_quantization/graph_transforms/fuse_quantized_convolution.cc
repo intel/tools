@@ -101,18 +101,11 @@ Status FuseQuantizedConvolutionAndRequantize(
         // QuantizedConv2DWithBiasSumAndReluAndRequantize
         if (quantized_conv2D_op_name.compare(
               "QuantizedConv2DWithBiasSumAndRelu") == 0) {
-          const NodeDef *in_requantize = node_map[node_map[
-              quantized_conv2D_node.input(n_input)]->input(0)];
           const NodeDef *summand_node = node_map[quantized_conv2D_node.input(
             n_input)];
-          bool quantized_summand = str_util::StrContains(
-            in_requantize->op(), "Quantized");
-          // If the summand is not quantized, we need to quantize it since the
-          // convolution kernel assumes that the summand is always quanitzed.
-          if (!quantized_summand &&
-              !is_perchannel &&
-              in_requantize->op() != "Requantize" &&
-              in_requantize->op() != "QuantizeV2") {
+          NodeDef* new_summand_node = nullptr;
+          NodeDef quantize_node;
+          if (summand_node->op() != "Dequantize") {
             // Quantizing the summand.
             // Add some common constants we need for reshaping inputs.
             NodeDef reshape_dims;
@@ -156,10 +149,20 @@ Status FuseQuantizedConvolutionAndRequantize(
             AddNodeInput(reshape_node.name(), &max_node);
             AddNodeInput(reduction_dims.name(), &max_node);
 
-            NodeDef quantize_node;
+            // NodeDef quantize_node;
             quantize_node.set_op("QuantizeV2");
             quantize_node.set_name(summand_node->name() + "/quantize");
-            SetNodeAttr("T", DT_QUINT8, &quantize_node);
+            // Decide data type of quantize op
+            std::vector<string> relu_ops = {
+                "Relu",
+                "Relu6"
+                };
+            bool is_relu = std::find(relu_ops.begin(), relu_ops.end(),
+                          summand_node->op()) != relu_ops.end();
+            if (is_relu)
+              SetNodeAttr("T", DT_QUINT8, &quantize_node);
+            else
+              SetNodeAttr("T", DT_QINT8, &quantize_node);
             SetNodeAttr("mode", "SCALED", &quantize_node);
 
             AddNodeInput(summand_node->name(), &reshape_node);
@@ -169,41 +172,47 @@ Status FuseQuantizedConvolutionAndRequantize(
             AddNodeInput(min_node.name(), &quantize_node);
             AddNodeInput(max_node.name(), &quantize_node);
 
-            AddNodeInput(quantize_node.name(), &fused_conv);
-            AddNodeInput(quantize_node.name() + ":1", &fused_conv);
-            AddNodeInput(quantize_node.name() + ":2", &fused_conv);
-
             new_nodes->push_back(reshape_dims);
             new_nodes->push_back(reduction_dims);
             new_nodes->push_back(reshape_node);
             new_nodes->push_back(min_node);
             new_nodes->push_back(max_node);
             new_nodes->push_back(quantize_node);
+            // Set the new summand node for fused_conv
+            new_summand_node = &quantize_node;
           } else {
-            string summand(in_requantize->name());
-            string min_summand(in_requantize->name() + ":1");
-            string max_summand(in_requantize->name() + ":2");
-            AddNodeInput(summand, &fused_conv);
-            AddNodeInput(min_summand, &fused_conv);
-            AddNodeInput(max_summand, &fused_conv);
+            // If summand node is Dequantize then either QuantizeV2 or
+            // Requantize{PerChannel} is feeding Dequantize op
+            new_summand_node = const_cast<NodeDef*>(node_map[
+                  summand_node->input(0)]);
           }
+          string summand(new_summand_node->name());
+          string min_summand(new_summand_node->name() + ":1");
+          string max_summand(new_summand_node->name() + ":2");
+          AddNodeInput(summand, &fused_conv);
+          AddNodeInput(min_summand, &fused_conv);
+          AddNodeInput(max_summand, &fused_conv);
 
-          // Signed version QuantizedConv2DWithBiasSumAndReluAndRequantize
-          // if Relu does not follow the convolution operation
-          std::vector<string> signed_ops = {
-              "QuantizedConv2DWithBias",
-              "QuantizedConv2D"
-              };
-          bool is_signed_summand =
-              std::find(signed_ops.begin(), signed_ops.end(),
-              node_map[in_requantize->input(0)]->op()) != signed_ops.end();
-          if (is_signed_summand) {
+          DataType summand_type;
+          // New summand node should be QuantizeV2 or
+          // Requantize{PerChannel} 
+          if (new_summand_node->op() == "QuantizeV2") {
+            TF_RETURN_IF_ERROR(GetNodeAttr(*new_summand_node,
+                                           "T", &summand_type));
+          } else if (new_summand_node->op() == "Requantize" ||
+                     new_summand_node->op() == "RequantizePerChannel") {
+            TF_RETURN_IF_ERROR(GetNodeAttr(*new_summand_node,
+                                           "out_type", &summand_type));
+          } else {
+            return Status(error::Code::FAILED_PRECONDITION,
+                               "Fusion is not supported, a fix is required.");
+          }
+          SetNodeAttr("Tsummand", summand_type, &fused_conv); 
+          // Decide whether signed version of 
+          // QuantizedConv2DWithBiasSumAndReluAndRequantize or not
+          if (summand_type == DT_QINT8) 
             fused_conv.set_op(
                 "QuantizedConv2DWithBiasSignedSumAndReluAndRequantize");
-            SetNodeAttr("Tsummand", DT_QINT8, &fused_conv);
-          } else {
-            SetNodeAttr("Tsummand", DT_QUINT8, &fused_conv);
-          }
         }
 
         // Add control input to the very end of the input list
@@ -216,32 +225,24 @@ Status FuseQuantizedConvolutionAndRequantize(
         CopyNodeAttr(quantized_conv2D_node, "strides", "strides", &fused_conv);
         CopyNodeAttr(quantized_conv2D_node, "padding", "padding", &fused_conv);
 
-        if (is_perchannel) {
-          std::vector<std::string> fused_quantized_bias_ops = {
-            "QuantizedConv2DWithBias",
-            "QuantizedConv2DWithBiasAndRelu",
-            "QuantizedDepthwiseConv2DWithBias",
-            "QuantizedDepthwiseConv2DWithBiasAndRelu",
-            "QuantizedConv2DWithBiasSumAndRelu",
-            "QuantizedConv2DWithBiasSignedSumAndRelu"
-          };
+        std::vector<std::string> fused_quantized_bias_ops = {
+          "QuantizedConv2DWithBias",
+          "QuantizedConv2DWithBiasAndRelu",
+          "QuantizedDepthwiseConv2DWithBias",
+          "QuantizedDepthwiseConv2DWithBiasAndRelu",
+          "QuantizedConv2DWithBiasSumAndRelu",
+          "QuantizedConv2DWithBiasSignedSumAndRelu"
+        };
 
-          if (std::find(fused_quantized_bias_ops.begin(),
-              fused_quantized_bias_ops.end(),
-              quantized_conv2D_node.op()) != fused_quantized_bias_ops.end()) {
-            SetNodeAttr("Tbias", DT_FLOAT, &fused_conv);
-          }
+        if (std::find(fused_quantized_bias_ops.begin(),
+            fused_quantized_bias_ops.end(),
+            quantized_conv2D_node.op()) != fused_quantized_bias_ops.end()) {
+          SetNodeAttr("Tbias", DT_FLOAT, &fused_conv);
         }
-
-        CopyNodeAttr(quantized_conv2D_node, "Tinput", "Tinput", &fused_conv);
-        CopyNodeAttr(quantized_conv2D_node, "Tfilter", "Tfilter", &fused_conv);
-        CopyNodeAttr(quantized_conv2D_node, "strides", "strides", &fused_conv);
-        CopyNodeAttr(quantized_conv2D_node, "padding", "padding", &fused_conv);
 
         if (HasNodeAttr(quantized_conv2D_node, "padding_list"))
           CopyNodeAttr(quantized_conv2D_node, "padding_list",
                        "padding_list",     &fused_conv);
-
         // Copy dilation attribute if exsit in the orginal node
         if (HasNodeAttr(quantized_conv2D_node, "dilations"))
           CopyNodeAttr(quantized_conv2D_node, "dilations",
@@ -301,21 +302,21 @@ Status FuseQuantizedConvolutionAndRequantize(
           NodeDef *bias_node = const_cast<NodeDef*>(node_map[NodeNameFromInput(
             node->input(2))]);
           const NodeDef *min_input_node = node_map[NodeNameFromInput(
-            node_map[node->input(0)]->input(7))];
+              node_map[node->input(0)]->input(7))];
           const NodeDef *max_input_node = node_map[NodeNameFromInput(
-            node_map[node->input(0)]->input(8))];
+              node_map[node->input(0)]->input(8))];
           const NodeDef *min_filter_node = node_map[NodeNameFromInput(
-            node->input(5))];
+              node->input(5))];
           const NodeDef *max_filter_node = node_map[NodeNameFromInput(
-            node->input(6))];
+              node->input(6))];
           const float min_input =
-            GetNodeTensorAttr(*min_input_node, "value").flat<float>()(0);
+              GetNodeTensorAttr(*min_input_node, "value").flat<float>()(0);
           const float max_input =
-            GetNodeTensorAttr(*max_input_node, "value").flat<float>()(0);
+              GetNodeTensorAttr(*max_input_node, "value").flat<float>()(0);
           const float min_filter =
-            GetNodeTensorAttr(*min_filter_node, "value").flat<float>()(0);
+              GetNodeTensorAttr(*min_filter_node, "value").flat<float>()(0);
           const float max_filter =
-            GetNodeTensorAttr(*max_filter_node, "value").flat<float>()(0);
+              GetNodeTensorAttr(*max_filter_node, "value").flat<float>()(0);
 
           TensorProto float_tensor_proto =
               bias_node->attr().at("value").tensor();

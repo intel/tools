@@ -195,7 +195,7 @@ Status FuseQuantizedConvolutionAndRequantize(
 
           DataType summand_type;
           // New summand node should be QuantizeV2 or
-          // Requantize{PerChannel} 
+          // Requantize{PerChannel}
           if (new_summand_node->op() == "QuantizeV2") {
             TF_RETURN_IF_ERROR(GetNodeAttr(*new_summand_node,
                                            "T", &summand_type));
@@ -207,10 +207,10 @@ Status FuseQuantizedConvolutionAndRequantize(
             return Status(error::Code::FAILED_PRECONDITION,
                                "Fusion is not supported, a fix is required.");
           }
-          SetNodeAttr("Tsummand", summand_type, &fused_conv); 
-          // Decide whether signed version of 
+          SetNodeAttr("Tsummand", summand_type, &fused_conv);
+          // Decide whether signed version of
           // QuantizedConv2DWithBiasSumAndReluAndRequantize or not
-          if (summand_type == DT_QINT8) 
+          if (summand_type == DT_QINT8)
             fused_conv.set_op(
                 "QuantizedConv2DWithBiasSignedSumAndReluAndRequantize");
         }

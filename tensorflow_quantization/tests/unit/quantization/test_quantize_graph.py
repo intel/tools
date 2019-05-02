@@ -1047,7 +1047,7 @@ class QuantizeGraphTest(test.TestCase):
         # mock tf session with statement call
         pytest.mock_session.Session.return_value.as_default.return_value.__enter__.return_value = None
 
-        quantize_graph.intel_cpu_quantize_weight_eightbit(MagicMock())
+        quantize_graph.intel_cpu_quantize_weight_eightbit(MagicMock(), MagicMock())
 
         assert pytest.mock_create_constant_node.call_count == 3
         pytest.mock_create_node.assert_called_once()

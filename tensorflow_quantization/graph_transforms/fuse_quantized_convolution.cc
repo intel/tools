@@ -259,96 +259,107 @@ Status FuseQuantizedConvolutionAndRequantize(
         return Status::OK();
       },
       {}, &replaced_graph_def));
+  
+  // After Requantize op fusion fix attributes for nodes in the graph, if any,
+  // and quantize the bias (float -> int32)
+  DataType bias_type;
+  // List of requantize fused ops that have biases. 
+  std::vector<std::string> fused_requantized_bias_ops = {
+      "QuantizedConv2DWithBiasAndRequantize",
+      "QuantizedConv2DWithBiasAndReluAndRequantize",
+      "QuantizedConv2DWithBiasSumAndReluAndRequantize",
+      "QuantizedConv2DWithBiasSignedSumAndReluAndRequantize",
+      "QuantizedDepthwiseConv2DWithBiasAndReluAndRequantize"
+  };
 
-  if (!is_perchannel) {
-    // Convert bias float -> int32 on replaced_graph_def
-    std::vector<std::string> fused_requantized_bias_ops = {
-        "QuantizedConv2DWithBiasAndRequantize",
-        "QuantizedConv2DWithBiasAndReluAndRequantize",
-        "QuantizedConv2DWithBiasSumAndReluAndRequantize",
-        "QuantizedConv2DWithBiasSignedSumAndReluAndRequantize",
-        "QuantizedDepthwiseConv2DWithBiasAndReluAndRequantize"
-    };
+  node_map.clear();
+  MapNamesToNodes(replaced_graph_def, &node_map);
+  for (auto& node_pair : node_map) {
+    const NodeDef *node = node_pair.second;
+    // An workaround to fix attributes of "Dequantize" op with non-perchannel
+    // quantization. "Dequantize" node should accept DT_QINT8 if the input node
+    // is "QuantizedConv2DAndRequantize" or 
+    // "QuantizedConv2DWithBiasAndRequantize".
+    if (str_util::StartsWith(node->op(), "Dequantize")) {
+      std::string input_node_op =
+          node_map[NodeNameFromInput(node->input(0))]->op();
+      if (str_util::StartsWith(input_node_op,
+             "QuantizedConv2DAndRequantize") ||
+          str_util::StartsWith(input_node_op,
+             "QuantizedConv2DWithBiasAndRequantize")) {
+        SetNodeAttr("T", DT_QINT8, const_cast<NodeDef*>(node));
+        SetNodeAttr("mode", "SCALED", const_cast<NodeDef*>(node));
+      }
+    continue;
+  }
+  // Quantize bias to int32 if input min-max values are constants.
+  // This is guaranteed if the preceeding op is a fused requantize op.
+  bool is_fused_requantized_conv_op =
+    std::find(fused_requantized_bias_ops.begin(),
+              fused_requantized_bias_ops.end(), node->op())
+        != fused_requantized_bias_ops.end();
+    if (is_fused_requantized_conv_op) {
+      std::string preceeding_op = node_map[NodeNameFromInput(
+                  node->input(0))]->op();
+      if (str_util::StartsWith(preceeding_op, "Quantized") &&
+          str_util::StrContains(preceeding_op, "Conv2D") &&
+          str_util::EndsWith(preceeding_op, "AndRequantize")) {
+        NodeDef *bias_node = const_cast<NodeDef*>(node_map[NodeNameFromInput(
+          node->input(2))]);
+        const NodeDef *min_input_node = node_map[NodeNameFromInput(
+            node_map[node->input(0)]->input(7))];
+        const NodeDef *max_input_node = node_map[NodeNameFromInput(
+            node_map[node->input(0)]->input(8))];
+        const NodeDef *min_filter_node = node_map[NodeNameFromInput(
+            node->input(5))];
+        const NodeDef *max_filter_node = node_map[NodeNameFromInput(
+            node->input(6))];
+        const float min_input =
+            GetNodeTensorAttr(*min_input_node, "value").flat<float>()(0);
+        const float max_input =
+            GetNodeTensorAttr(*max_input_node, "value").flat<float>()(0);
+        const Tensor& min_filter_tensor = 
+            GetNodeTensorAttr(*min_filter_node, "value");
+        const Tensor& max_filter_tensor =
+            GetNodeTensorAttr(*max_filter_node, "value");
+        const float* min_filter = min_filter_tensor.flat<float>().data();
+        const float* max_filter = max_filter_tensor.flat<float>().data();
+        size_t num_output_channel = min_filter_tensor.NumElements(); 
 
-    node_map.clear();
-    MapNamesToNodes(replaced_graph_def, &node_map);
-    for (auto& node_pair : node_map) {
-      const NodeDef *node = node_pair.second;
-      // An workaround to fix attributes of "Dequantize" op with non-perchannel
-      // quantization. "Dequantize" node should accept DT_QINT8 if the input node
-      // is "QuantizedConv2DAndRequantize" or 
-      // "QuantizedConv2DWithBiasAndRequantize".
-      if (str_util::StartsWith(node->op(), "Dequantize")) {
-        std::string input_node_op =
-            node_map[NodeNameFromInput(node->input(0))]->op();
-        if (str_util::StartsWith(input_node_op,
-               "QuantizedConv2DAndRequantize") ||
-            str_util::StartsWith(input_node_op,
-               "QuantizedConv2DWithBiasAndRequantize")) {
-          SetNodeAttr("T", DT_QINT8, const_cast<NodeDef*>(node));
-          SetNodeAttr("mode", "SCALED", const_cast<NodeDef*>(node));
-        }
-      continue;
-    }
+        TensorProto float_tensor_proto =
+            bias_node->attr().at("value").tensor();
+        Tensor float_bias_tensor;
+        CHECK(float_bias_tensor.FromProto(float_tensor_proto));
+        CHECK_EQ(float_bias_tensor.dtype(), DT_FLOAT);
+        float *float_bias = float_bias_tensor.flat<float>().data();
 
-    bool is_fused_requantized_conv_op =
-      std::find(fused_requantized_bias_ops.begin(),
-                fused_requantized_bias_ops.end(), node->op())
-          != fused_requantized_bias_ops.end();
-      if (is_fused_requantized_conv_op) {
-        // If the op is feed by Quantize op then we keep bias as float
-        std::string input_op = node_map[NodeNameFromInput(
-                    node->input(0))]->op();
-        if (str_util::StartsWith(input_op, "QuantizedConv2D") &&
-          str_util::EndsWith(input_op, "AndRequantize")) {
-          NodeDef *bias_node = const_cast<NodeDef*>(node_map[NodeNameFromInput(
-            node->input(2))]);
-          const NodeDef *min_input_node = node_map[NodeNameFromInput(
-              node_map[node->input(0)]->input(7))];
-          const NodeDef *max_input_node = node_map[NodeNameFromInput(
-              node_map[node->input(0)]->input(8))];
-          const NodeDef *min_filter_node = node_map[NodeNameFromInput(
-              node->input(5))];
-          const NodeDef *max_filter_node = node_map[NodeNameFromInput(
-              node->input(6))];
-          const float min_input =
-              GetNodeTensorAttr(*min_input_node, "value").flat<float>()(0);
-          const float max_input =
-              GetNodeTensorAttr(*max_input_node, "value").flat<float>()(0);
-          const float min_filter =
-              GetNodeTensorAttr(*min_filter_node, "value").flat<float>()(0);
-          const float max_filter =
-              GetNodeTensorAttr(*max_filter_node, "value").flat<float>()(0);
-
-          TensorProto float_tensor_proto =
-              bias_node->attr().at("value").tensor();
-          Tensor float_tensor;
-          CHECK(float_tensor.FromProto(float_tensor_proto));
-          CHECK_EQ(float_tensor.dtype(), DT_FLOAT);
-          float *p_bias_float = float_tensor.flat<float>().data();
-
-          Tensor int32_tensor = Tensor(DT_QINT32, float_tensor.shape());
-          qint32 *p_bias_int32 = int32_tensor.flat<qint32>().data();
-
-          float bias_scale = 255.0 * 127.0 /
+        Tensor int32_bias_tensor = Tensor(DT_QINT32, float_bias_tensor.shape());
+        qint32 *int32_bias = int32_bias_tensor.flat<qint32>().data();
+        std::vector<float> scales(num_output_channel);
+        for (size_t i = 0; i < num_output_channel; ++i) {
+          scales[i] = 255.0 * 127.0 /
               (std::max(std::abs(max_input), std::abs(min_input)) *
-              std::max(std::abs(max_filter), std::abs(min_filter)));
-          int64 nelems = float_tensor.NumElements();
-          for (int64 n = 0; n < nelems; n++)
-            p_bias_int32[n] = (int32_t) (p_bias_float[n] * bias_scale);
+              std::max(std::abs(max_filter[i]), std::abs(min_filter[i])));
+        } 
+        int64 nelems = float_bias_tensor.NumElements();
+        if (nelems != num_output_channel)
+          return Status(error::Code::FAILED_PRECONDITION,
+                        "Number of filter output channels is not"
+                        "equal to bias size");
+        for (int64 i = 0; i < nelems; i++)
+          int32_bias[i] = (int32_t) (float_bias[i] * scales[i]);
 
-          bias_node->clear_attr();
-          AttrValue attr_type;
-          attr_type.set_type(int32_tensor.dtype());
-          bias_node->mutable_attr()->insert({"dtype", attr_type});
-          AttrValue attr_tensor;
-          TensorProto* t = attr_tensor.mutable_tensor();
-          int32_tensor.AsProtoTensorContent(t);
-          bias_node->mutable_attr()->insert({"value", attr_tensor});
-          SetNodeAttr("Tbias", DT_QINT32, const_cast<NodeDef*>(node));
-        } else {
-          SetNodeAttr("Tbias", DT_FLOAT, const_cast<NodeDef*>(node));
-        }
+        bias_node->clear_attr();
+        AttrValue attr_type;
+        attr_type.set_type(int32_bias_tensor.dtype());
+        bias_node->mutable_attr()->insert({"dtype", attr_type});
+        AttrValue attr_tensor;
+        TensorProto* t = attr_tensor.mutable_tensor();
+        int32_bias_tensor.AsProtoTensorContent(t);
+        bias_node->mutable_attr()->insert({"value", attr_tensor});
+        SetNodeAttr("Tbias", DT_QINT32, const_cast<NodeDef*>(node));
+      } else {
+        SetNodeAttr("Tbias", DT_FLOAT, const_cast<NodeDef*>(node));
       }
     }
   }

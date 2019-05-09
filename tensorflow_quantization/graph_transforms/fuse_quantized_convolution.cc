@@ -266,17 +266,19 @@ Status FuseQuantizedConvolutionAndRequantize(
         "QuantizedConv2DWithBiasAndRequantize",
         "QuantizedConv2DWithBiasAndReluAndRequantize",
         "QuantizedConv2DWithBiasSumAndReluAndRequantize",
-        "QuantizedConv2DWithBiasSignedSumAndReluAndRequantize"
+        "QuantizedConv2DWithBiasSignedSumAndReluAndRequantize",
+        "QuantizedDepthwiseConv2DWithBiasAndReluAndRequantize"
     };
 
     node_map.clear();
     MapNamesToNodes(replaced_graph_def, &node_map);
     for (auto& node_pair : node_map) {
       const NodeDef *node = node_pair.second;
+      // An workaround to fix attributes of "Dequantize" op with non-perchannel
+      // quantization. "Dequantize" node should accept DT_QINT8 if the input node
+      // is "QuantizedConv2DAndRequantize" or 
+      // "QuantizedConv2DWithBiasAndRequantize".
       if (str_util::StartsWith(node->op(), "Dequantize")) {
-        // dequant node should accept DT_QINT8 if the input node is
-        // "QuantizedConv2DAndRequantize" and
-        //  "QuantizedConv2DWithBiasAndRequantize"
         std::string input_node_op =
             node_map[NodeNameFromInput(node->input(0))]->op();
         if (str_util::StartsWith(input_node_op,

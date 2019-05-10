@@ -97,8 +97,9 @@ Status FuseQuantizedConvolutionAndRequantize(
         AddNodeInput(const_requantize_range_min_node.name(), &fused_conv);
         AddNodeInput(const_requantize_range_max_node.name(), &fused_conv);
 
-        // Add additional inputs to
-        // QuantizedConv2DWithBiasSumAndReluAndRequantize
+        // Ensure QuantizedConv2DWithBiasSumAndReluAndRequantize receives
+        // integer summand. Because requantization fusion is registered
+        // for integer summand only.
         if (quantized_conv2D_op_name.compare(
               "QuantizedConv2DWithBiasSumAndRelu") == 0) {
           const NodeDef *summand_node = node_map[quantized_conv2D_node.input(
@@ -181,8 +182,9 @@ Status FuseQuantizedConvolutionAndRequantize(
             // Set the new summand node for fused_conv
             new_summand_node = &quantize_node;
           } else {
-            // If summand node is Dequantize then either QuantizeV2 or
-            // Requantize{PerChannel} is feeding Dequantize op
+            // If summand node is "Dequantize" then either "QuantizeV2" or
+            // "Requantize{PerChannel}" is feeding Dequantize op. Set new_summand_node
+            // as the input of summand node.
             new_summand_node = const_cast<NodeDef*>(node_map[
                   summand_node->input(0)]);
           }
@@ -199,10 +201,23 @@ Status FuseQuantizedConvolutionAndRequantize(
           if (new_summand_node->op() == "QuantizeV2") {
             TF_RETURN_IF_ERROR(GetNodeAttr(*new_summand_node,
                                            "T", &summand_type));
-          } else if (new_summand_node->op() == "Requantize" ||
-                     new_summand_node->op() == "RequantizePerChannel") {
+          } else if (new_summand_node->op() == "RequantizePerChannel") {
             TF_RETURN_IF_ERROR(GetNodeAttr(*new_summand_node,
                                            "out_type", &summand_type));
+          } else if (new_summand_node->op() == "Requantize") {
+            // Requantize op is Eigen kernel that does non-SCALED quantization
+            // and always maps into quint8. However, for MKLDNN fusion, which is
+            // SCALED quantization, the summand fused requantize op may have
+            // qint8 or quint8 as its output type. Therefore, it is needed to set
+            // the summand_type correctly.
+            std::vector<string> signed_ops = {
+                "QuantizedConv2DWithBias",
+                "QuantizedConv2D"
+                };
+            bool is_signed_summand =
+              std::find(signed_ops.begin(), signed_ops.end(),
+                  node_map[new_summand_node->input(0)]->op()) != signed_ops.end();
+            summand_type = is_signed_summand ? DT_QINT8 : DT_QUINT8;
           } else {
             return Status(error::Code::FAILED_PRECONDITION,
                                "Fusion is not supported, a fix is required.");
@@ -231,15 +246,12 @@ Status FuseQuantizedConvolutionAndRequantize(
           "QuantizedDepthwiseConv2DWithBias",
           "QuantizedDepthwiseConv2DWithBiasAndRelu",
           "QuantizedConv2DWithBiasSumAndRelu",
-          "QuantizedConv2DWithBiasSignedSumAndRelu"
         };
-
         if (std::find(fused_quantized_bias_ops.begin(),
             fused_quantized_bias_ops.end(),
             quantized_conv2D_node.op()) != fused_quantized_bias_ops.end()) {
           SetNodeAttr("Tbias", DT_FLOAT, &fused_conv);
         }
-
         if (HasNodeAttr(quantized_conv2D_node, "padding_list"))
           CopyNodeAttr(quantized_conv2D_node, "padding_list",
                        "padding_list",     &fused_conv);
@@ -260,15 +272,15 @@ Status FuseQuantizedConvolutionAndRequantize(
       },
       {}, &replaced_graph_def));
   
-  // After Requantize op fusion fix attributes for nodes in the graph, if any,
-  // and quantize the bias (float -> int32)
-  DataType bias_type;
+  // After Requantize op fusion, fix attributes for nodes in the graph, if threre is
+  // some discrepency. And also quantize the bias (float -> int32)
   // List of requantize fused ops that have biases. 
   std::vector<std::string> fused_requantized_bias_ops = {
       "QuantizedConv2DWithBiasAndRequantize",
       "QuantizedConv2DWithBiasAndReluAndRequantize",
       "QuantizedConv2DWithBiasSumAndReluAndRequantize",
       "QuantizedConv2DWithBiasSignedSumAndReluAndRequantize",
+      "QuantizedDepthwiseConv2DWithBiasAndRequantize",
       "QuantizedDepthwiseConv2DWithBiasAndReluAndRequantize"
   };
 
@@ -290,11 +302,11 @@ Status FuseQuantizedConvolutionAndRequantize(
         SetNodeAttr("T", DT_QINT8, const_cast<NodeDef*>(node));
         SetNodeAttr("mode", "SCALED", const_cast<NodeDef*>(node));
       }
-    continue;
-  }
-  // Quantize bias to int32 if input min-max values are constants.
-  // This is guaranteed if the preceeding op is a fused requantize op.
-  bool is_fused_requantized_conv_op =
+      continue;
+    }
+    // Quantize bias to int32 if input min-max values are constants.
+    // This is guaranteed if the preceeding op is a fused requantize op.
+    bool is_fused_requantized_conv_op =
     std::find(fused_requantized_bias_ops.begin(),
               fused_requantized_bias_ops.end(), node->op())
         != fused_requantized_bias_ops.end();
@@ -324,7 +336,7 @@ Status FuseQuantizedConvolutionAndRequantize(
             GetNodeTensorAttr(*max_filter_node, "value");
         const float* min_filter = min_filter_tensor.flat<float>().data();
         const float* max_filter = max_filter_tensor.flat<float>().data();
-        size_t num_output_channel = min_filter_tensor.NumElements(); 
+        size_t num_scale_factors = min_filter_tensor.NumElements();
 
         TensorProto float_tensor_proto =
             bias_node->attr().at("value").tensor();
@@ -335,20 +347,26 @@ Status FuseQuantizedConvolutionAndRequantize(
 
         Tensor int32_bias_tensor = Tensor(DT_QINT32, float_bias_tensor.shape());
         qint32 *int32_bias = int32_bias_tensor.flat<qint32>().data();
-        std::vector<float> scales(num_output_channel);
-        for (size_t i = 0; i < num_output_channel; ++i) {
+        std::vector<float> scales(num_scale_factors);
+        for (size_t i = 0; i < num_scale_factors; ++i) {
           scales[i] = 255.0 * 127.0 /
               (std::max(std::abs(max_input), std::abs(min_input)) *
               std::max(std::abs(max_filter[i]), std::abs(min_filter[i])));
         } 
-        int64 nelems = float_bias_tensor.NumElements();
-        if (nelems != num_output_channel)
-          return Status(error::Code::FAILED_PRECONDITION,
-                        "Number of filter output channels is not"
-                        "equal to bias size");
-        for (int64 i = 0; i < nelems; i++)
-          int32_bias[i] = (int32_t) (float_bias[i] * scales[i]);
-
+        int64 bias_length = float_bias_tensor.NumElements();
+        if (num_scale_factors > 1) {
+          if (bias_length != num_scale_factors)
+            return Status(error::Code::FAILED_PRECONDITION,
+                          "Number of filter output channels is not"
+                          "equal to bias size");
+          else {
+            for (int64 i = 0; i < bias_length; i++)
+              int32_bias[i] = (int32_t) (float_bias[i] * scales[i]);
+          }
+        } else {
+          for (int64 i = 0; i < bias_length; i++)
+            int32_bias[i] = (int32_t) (float_bias[i] * scales[0]);
+        }
         bias_node->clear_attr();
         AttrValue attr_type;
         attr_type.set_type(int32_bias_tensor.dtype());

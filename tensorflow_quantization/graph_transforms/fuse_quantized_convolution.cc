@@ -183,8 +183,8 @@ Status FuseQuantizedConvolutionAndRequantize(
             new_summand_node = &quantize_node;
           } else {
             // If summand node is "Dequantize" then either "QuantizeV2" or
-            // "Requantize{PerChannel}" is feeding Dequantize op. Set new_summand_node
-            // as the input of summand node.
+            // "Requantize{PerChannel}" is feeding Dequantize op.
+            // Set new_summand_node as the input of summand node.
             new_summand_node = const_cast<NodeDef*>(node_map[
                   summand_node->input(0)]);
           }
@@ -208,15 +208,16 @@ Status FuseQuantizedConvolutionAndRequantize(
             // Requantize op is Eigen kernel that does non-SCALED quantization
             // and always maps into quint8. However, for MKLDNN fusion, which is
             // SCALED quantization, the summand fused requantize op may have
-            // qint8 or quint8 as its output type. Therefore, it is needed to set
-            // the summand_type correctly.
+            // qint8 or quint8 as its output type. Therefore, it is needed to
+            // set the summand_type correctly.
             std::vector<string> signed_ops = {
                 "QuantizedConv2DWithBias",
                 "QuantizedConv2D"
                 };
             bool is_signed_summand =
               std::find(signed_ops.begin(), signed_ops.end(),
-                  node_map[new_summand_node->input(0)]->op()) != signed_ops.end();
+                  node_map[new_summand_node->input(0)]->op())
+                  != signed_ops.end();
             summand_type = is_signed_summand ? DT_QINT8 : DT_QUINT8;
           } else {
             return Status(error::Code::FAILED_PRECONDITION,
@@ -271,10 +272,10 @@ Status FuseQuantizedConvolutionAndRequantize(
         return Status::OK();
       },
       {}, &replaced_graph_def));
-  
-  // After Requantize op fusion, fix attributes for nodes in the graph, if threre is
-  // some discrepency. And also quantize the bias (float -> int32)
-  // List of requantize fused ops that have biases. 
+
+  // After Requantize op fusion, fix attributes for nodes in the graph,
+  // if threre is some discrepency. And also quantize the bias (float -> int32)
+  // List of requantize fused ops that have biases.
   std::vector<std::string> fused_requantized_bias_ops = {
       "QuantizedConv2DWithBiasAndRequantize",
       "QuantizedConv2DWithBiasAndReluAndRequantize",
@@ -290,7 +291,7 @@ Status FuseQuantizedConvolutionAndRequantize(
     const NodeDef *node = node_pair.second;
     // An workaround to fix attributes of "Dequantize" op with non-perchannel
     // quantization. "Dequantize" node should accept DT_QINT8 if the input node
-    // is "QuantizedConv2DAndRequantize" or 
+    // is "QuantizedConv2DAndRequantize" or
     // "QuantizedConv2DWithBiasAndRequantize".
     if (str_util::StartsWith(node->op(), "Dequantize")) {
       std::string input_node_op =
@@ -330,7 +331,7 @@ Status FuseQuantizedConvolutionAndRequantize(
             GetNodeTensorAttr(*min_input_node, "value").flat<float>()(0);
         const float max_input =
             GetNodeTensorAttr(*max_input_node, "value").flat<float>()(0);
-        const Tensor& min_filter_tensor = 
+        const Tensor& min_filter_tensor =
             GetNodeTensorAttr(*min_filter_node, "value");
         const Tensor& max_filter_tensor =
             GetNodeTensorAttr(*max_filter_node, "value");
@@ -352,14 +353,14 @@ Status FuseQuantizedConvolutionAndRequantize(
           scales[i] = 255.0 * 127.0 /
               (std::max(std::abs(max_input), std::abs(min_input)) *
               std::max(std::abs(max_filter[i]), std::abs(min_filter[i])));
-        } 
+        }
         int64 bias_length = float_bias_tensor.NumElements();
         if (num_scale_factors > 1) {
-          if (bias_length != num_scale_factors)
+          if (bias_length != num_scale_factors) {
             return Status(error::Code::FAILED_PRECONDITION,
                           "Number of filter output channels is not"
                           "equal to bias size");
-          else {
+          } else {
             for (int64 i = 0; i < bias_length; i++)
               int32_bias[i] = (int32_t) (float_bias[i] * scales[i]);
           }

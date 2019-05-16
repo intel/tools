@@ -195,7 +195,7 @@ Status FuseQuantizedConvolutionAndRequantize(
           AddNodeInput(min_summand, &fused_conv);
           AddNodeInput(max_summand, &fused_conv);
 
-          DataType summand_type;
+          DataType summand_type = DT_QUINT8;
           // New summand node should be QuantizeV2 or
           // Requantize{PerChannel}
           if (new_summand_node->op() == "QuantizeV2") {
@@ -219,9 +219,18 @@ Status FuseQuantizedConvolutionAndRequantize(
                   node_map[new_summand_node->input(0)]->op())
                   != signed_ops.end();
             summand_type = is_signed_summand ? DT_QINT8 : DT_QUINT8;
+          } else if (str_util::StartsWith(new_summand_node->op(),
+                                          "Quantized")) {
+            if (HasNodeAttr(*new_summand_node, "T")) {
+              TF_RETURN_IF_ERROR(GetNodeAttr(*new_summand_node,
+                                             "T", &summand_type));
+            } else if (HasNodeAttr(*new_summand_node, "out_type")) {
+              TF_RETURN_IF_ERROR(GetNodeAttr(*new_summand_node,
+                                             "out_type", &summand_type));
+            }
           } else {
             return Status(error::Code::FAILED_PRECONDITION,
-                               "Fusion is not supported, a fix is required.");
+                          "Fusion is not supported, a fix is required.");
           }
           SetNodeAttr("Tsummand", summand_type, &fused_conv);
           // Decide whether signed version of

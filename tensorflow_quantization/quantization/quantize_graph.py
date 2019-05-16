@@ -936,7 +936,7 @@ class GraphRewriter(object):
                 quantized_conv_name = original_node.name + "_eightbit_quantized_depthwise_conv"
                 quantized_conv_node = create_node("QuantizedDepthwiseConv2D", quantized_conv_name,
                                                   all_input_names)
-            dequantize_node_name = original_node_name
+            dequantize_node_name = original_node.name
         copy_attr(quantized_conv_node, "strides", original_node.attr["strides"])
         copy_attr(quantized_conv_node, "padding", original_node.attr["padding"])
         copy_attr(quantized_conv_node, "dilations", original_node.attr["dilations"])

@@ -15,20 +15,108 @@
 #
 # SPDX-License-Identifier: EPL-2.0
 #
+#
 
-ARG BASE_IMAGE_ORG=intelaipg/intel-optimized-tensorflow
-ARG BASE_IMAGE_TAG=nightly-latestprs-bdw
-FROM ${BASE_IMAGE_ORG}:${BASE_IMAGE_TAG}
+FROM ubuntu:18.04
 
-# Using 2.0-aplha, otherwise quantization tools bazel build fails.
 ARG TF_BUILD_VERSION=v2.0.0-alpha0
+ARG PYTHON="python"
+ARG PYTHON3_DEV=""
+ARG WHL_DIR="/tmp/pip"
+ARG PIP="pip"
 
-ENV WORKSPACE="/workspace"
-ENV TF_WORKSPACE="${WORKSPACE}/tensorflow"
+RUN apt-get update && apt-get install -y --no-install-recommends --fix-missing \
+        ${PYTHON} \
+        ${PYTHON}-dev \
+        ${PYTHON}-pip \
+        ${PYTHON}-setuptools \
+        ${PYTHON}-wheel \
+        build-essential \
+        curl \
+        git \
+        libcurl3-dev \
+        libfreetype6-dev \
+        libhdf5-serial-dev \
+        libpng-dev \
+        libssl-dev \
+        libzmq3-dev \
+        openjdk-8-jdk \
+        openjdk-8-jre-headless \
+        pkg-config \
+        software-properties-common \
+        unzip \
+        wget \
+        zip \
+        zlib1g-dev \
+        && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN ${PIP} --no-cache-dir install \
+        Pillow \
+        h5py \
+        ipykernel \
+        keras_applications \
+        keras_preprocessing \
+        mock \
+        numpy \
+        pandas \
+        scipy \
+        sklearn \
+        && \
+    ${PYTHON} -m ipykernel.kernelspec
+
+# Set up Bazel
+ENV BAZEL_VERSION 0.23.0
+WORKDIR /workspace
+RUN mkdir /bazel && \
+    cd /bazel && \
+    curl -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36" -fSsL -O https://github.com/bazelbuild/bazel/releases/download/$BAZEL_VERSION/bazel-$BAZEL_VERSION-installer-linux-x86_64.sh && \
+    curl -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36" -fSsL -o /bazel/LICENSE.txt https://raw.githubusercontent.com/bazelbuild/bazel/master/LICENSE && \
+    chmod +x bazel-*.sh && \
+    ./bazel-$BAZEL_VERSION-installer-linux-x86_64.sh && \
+    cd / && \
+    rm -f /bazel/bazel-$BAZEL_VERSION-installer-linux-x86_64.sh
+
+# Download and build TensorFlow.
+ENV TF_WORKSPACE /workspace/tensorflow
 WORKDIR ${TF_WORKSPACE}
 
-RUN git clone https://github.com/tensorflow/tensorflow.git . && \
-    git checkout ${TF_BUILD_VERSION}
+# Enable checking out both tags and branches
+RUN export TAG_PREFIX="v" && \
+    echo ${TF_BUILD_VERSION} | grep -q ^${TAG_PREFIX}; \
+    if [ $? -eq 0 ]; then \
+        git clone --depth=1 https://github.com/tensorflow/tensorflow.git . && \
+        git fetch --tags && \
+        git checkout ${TF_BUILD_VERSION}; \
+   else \
+        git clone --depth=1 --branch=${TF_BUILD_VERSION} https://github.com/tensorflow/tensorflow.git . ; \
+    fi
+
+RUN yes "" | ${PYTHON} configure.py
+RUN cp .bazelrc /root/.bazelrc
+
+ENV CI_BUILD_PYTHON ${PYTHON}
+
+# Set bazel build parameters in .bazelrc in parameterized_docker_build.sh
+# Use --copt=-march values to get optimized builds appropriate for the hardware
+#   platform of your choice.
+# For ivy-bridge or sandy-bridge
+# --copt=-march="avx" \
+# For haswell, broadwell, or skylake
+# --copt=-march="avx2" \
+RUN cp .bazelrc /root/.mkl.bazelrc
+RUN echo "import /root/.mkl.bazelrc" >>/root/.bazelrc
+
+RUN tensorflow/tools/ci_build/builds/configured CPU \
+    bazel --bazelrc=/root/.bazelrc build -c opt \
+    tensorflow/tools/pip_package:build_pip_package && \
+    bazel-bin/tensorflow/tools/pip_package/build_pip_package "${WHL_DIR}" && \
+    ${PIP} --no-cache-dir install --upgrade "${WHL_DIR}"/tensorflow-*.whl && \
+    rm -rf /root/.cache
+# Clean up Bazel cache when done.
+RUN bazel clean --expunge --color=yes && \
+    rm -rf /root/.cache
 
 # Update graph_transforms files with customizations
 COPY graph_transforms/* ${TF_WORKSPACE}/tensorflow/tools/graph_transforms/

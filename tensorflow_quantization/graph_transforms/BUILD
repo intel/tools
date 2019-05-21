@@ -1,5 +1,5 @@
 # Description:
-#   Utilities that perform useful transformations on graphs
+#   Utilities that perform useful transformations on graphs.
 
 package(default_visibility = ["//visibility:public"])
 

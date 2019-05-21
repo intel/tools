@@ -1093,8 +1093,8 @@ class GraphRewriter(object):
             return
 
         self.state.already_visited[current_node.name] = True
-        quantize_input, should_quantize_conv, \
-            fuse_with_conv = (False, False, False)
+        quantize_input, should_quantize_conv, should_quantize_concat, \
+            fuse_with_conv = (False, False, False, False)
 
         if current_node.op in ("Conv2D", "DepthwiseConv2dNative") \
                 and (current_node.op not in self.excluded_ops) \

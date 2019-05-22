@@ -19,15 +19,12 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-import sys
 
 from tensorflow.core.framework import graph_pb2
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags as flags_lib
 from tensorflow.python.platform import gfile
 from google.protobuf import text_format
-
-import common_flags
 
 flags = flags_lib
 FLAGS = flags.FLAGS
@@ -49,7 +46,6 @@ def main(unused_args):
             text_format.Merge(data, tf_graph)
 
     for node in tf_graph.node:
-        new_input = []
         for i in node.input:
             if i[0] == '^':
                 node.input.remove(i)

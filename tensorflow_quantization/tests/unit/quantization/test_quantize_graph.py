@@ -225,7 +225,9 @@ def get_top_value(input_values):
     return max_index, max_value
 
 
-def graph_test(float_graph_def, input_map, output_names, log_graph=False):
+def graph_test(float_graph_def, input_map, output_names, log_graph=False,
+               intel_cpu_eightbitize=False, excluded_ops=[],
+               excluded_nodes=[], per_channel=False):
     """Runs the float graph through the rewriter and tests the results."""
     float_results = run_graph_def(
         float_graph_def, input_map,
@@ -241,26 +243,29 @@ def graph_test(float_graph_def, input_map, output_names, log_graph=False):
     # TODO(petewarden): Add test for "quantize" mode.
 
     eightbit_rewriter = quantize_graph.GraphRewriter(
-        float_graph_def, "eightbit", quantized_input_range=None)
+        float_graph_def, "eightbit", quantized_input_range=None,
+        intel_cpu_eightbitize=intel_cpu_eightbitize, excluded_ops=excluded_ops,
+        excluded_nodes=excluded_nodes, per_channel=per_channel)
     eightbit_graph_def = eightbit_rewriter.rewrite(output_names)
+    if log_graph:
+        tf_logging.info("8bit:\n%s", str(eightbit_graph_def))
+
     eightbit_results = run_graph_def(
         eightbit_graph_def, input_map,
         [output_name + ":0" for output_name in output_names])
     for expected, result in zip(float_results, eightbit_results):
         assert are_tensors_near(expected, result, 1.0)
 
-    if log_graph:
-        tf_logging.info("8bit:\n%s", str(eightbit_graph_def))
-
-    # Test the weights_rounded mode. This uses the default bit_depth.
-    weights_rounded_rewriter = quantize_graph.GraphRewriter(
-        float_graph_def, "weights_rounded", quantized_input_range=None)
-    weights_rounded_graph_def = weights_rounded_rewriter.rewrite(output_names)
-    weights_rounded_results = run_graph_def(
-        weights_rounded_graph_def, input_map,
-        [output_name + ":0" for output_name in output_names])
-    for expected, result in zip(float_results, weights_rounded_results):
-        assert are_tensors_near(expected, result, 1.0)
+    if not intel_cpu_eightbitize:
+        # Test the weights_rounded mode. This uses the default bit_depth.
+        weights_rounded_rewriter = quantize_graph.GraphRewriter(
+            float_graph_def, "weights_rounded", quantized_input_range=None)
+        weights_rounded_graph_def = weights_rounded_rewriter.rewrite(output_names)
+        weights_rounded_results = run_graph_def(
+            weights_rounded_graph_def, input_map,
+            [output_name + ":0" for output_name in output_names])
+        for expected, result in zip(float_results, weights_rounded_results):
+            assert are_tensors_near(expected, result, 1.0)
 
 
 class QuantizeGraphTest(test.TestCase):
@@ -1040,27 +1045,112 @@ class QuantizeGraphTest(test.TestCase):
 
         assert "     op:foo" in output
 
-    @pytest.mark.usefixtures(
-        "mock_array_ops", "mock_create_constant_node", "mock_create_node", "mock_tensor_util", "mock_session")
-    def test_intel_cpu_quantize_weight_eightbit(self):
-        pytest.mock_tensor_util.MakeNdarray.return_value.flatten.return_value = 0.0
-        # mock tf session with statement call
-        pytest.mock_session.Session.return_value.as_default.return_value.__enter__.return_value = None
 
-        quantize_graph.intel_cpu_quantize_weight_eightbit(MagicMock(), MagicMock())
+class IntelCpuQuantizeGraphTest(test.TestCase):
+    def test_conv_bias_relu(self):
+        """Tests quantization on Conv2d->BiasAdd->Relu fusion. Since Intel CPU
+        version requires Relu feeding to Conv2D for the quantization, A Relu
+        node is added before Conv2D."""
+        # Create an fp32 graph for Const-->Relu-->Conv2D-->BiasAdd-->Relu
+        float_graph_def = graph_pb2.GraphDef()
+        input_shape = [1, 4, 4, 4]
+        filter_shape = [2, 2, 4, 4]
+        bias_shape = [4]
+        np_input = np.random.randn(*input_shape).astype(np.float32).flatten()
+        np_filter = np.random.randn(*filter_shape).astype(np.float32).flatten()
+        np_bias = np.random.randn(*bias_shape).astype(np.float32).flatten()
 
-        assert pytest.mock_create_constant_node.call_count == 3
-        pytest.mock_create_node.assert_called_once()
+        input_const_name, relu_1_name, filter_const_name, conv_name, \
+            bias_const_name, bias_add_name, relu_2_name = ("input_const", "relu_1", \
+                "filter_const", "conv", "bias_const", "bias_add", "relu_2")
+        # Relu1
+        input_const_node = quantize_graph.create_constant_node(input_const_name,
+            np_input, dtypes.float32, shape=input_shape)
+        relu_1_node = quantize_graph.create_node("Relu", relu_1_name,
+                                                 [input_const_name])
+        quantize_graph.set_attr_dtype(relu_1_node, "T", dtypes.float32)
+        # Conv2D
+        filter_const_node = quantize_graph.create_constant_node(filter_const_name,
+            np_filter, dtypes.float32, shape=filter_shape)
+        conv_node = quantize_graph.create_node(
+              "Conv2D", conv_name, [relu_1_name, filter_const_name])
+        quantize_graph.set_attr_dtype(conv_node, "T", dtypes.float32)
+        quantize_graph.set_attr_int_list(conv_node, "strides", [1, 1, 1, 1])
+        quantize_graph.set_attr_string(conv_node, "padding", b"SAME")
+        # BiasAdd
+        bias_const_node = quantize_graph.create_constant_node(bias_const_name,
+            np_bias, dtypes.float32, shape=bias_shape)
+        bias_add_node = quantize_graph.create_node("BiasAdd", bias_add_name,
+            [conv_name, bias_const_name])
+        quantize_graph.set_attr_dtype(bias_add_node, "T", dtypes.float32)
+        # Relu2
+        relu_2_node = quantize_graph.create_node("Relu", relu_2_name,
+                                                 [bias_add_name])
+        quantize_graph.set_attr_dtype(relu_2_node, "T", dtypes.float32)
+        # Add all nodes to the graph
+        float_graph_def.node.extend([input_const_node, relu_1_node,
+            filter_const_node, conv_node, bias_const_node, bias_add_node,
+            relu_2_node])
+        graph_test(float_graph_def, {}, [relu_2_name], log_graph=False,
+                   intel_cpu_eightbitize=True, excluded_ops=[],
+                   excluded_nodes=[], per_channel=True)
 
-    @pytest.mark.usefixtures("mock_node_def_pb2", "mock_constant_op")
-    def test_round_nodes_recursively(self):
-        rewriter = quantize_graph.GraphRewriter(MagicMock(), 'round', None)
-        rewriter.already_visited = {}
-        rewriter.output_graph = MagicMock()
-        rewriter.round_nodes_recursively(MagicMock(name='bar', op="Conv2D"))
-
-        assert pytest.mock_node_def_pb2.call_count == 2
-
+    def test_conv_bias_sum_relu(self):
+        """Tests quantization on Conv2d->BiasAdd->Sum->Relu fusion. Since Intel CPU
+        version requires Relu feeding to Conv2D for the quantization, A Relu
+        node is added before Conv2D."""
+        # Create an fp32 graph for Const-->Relu-->Conv2D-->BiasAdd-->Sum-->Relu
+        float_graph_def = graph_pb2.GraphDef()
+        input_shape = [1, 4, 4, 4]
+        filter_shape = [2, 2, 4, 4]
+        bias_shape = [4]
+        summand_shape = [1, 4, 4, 4]
+        np_input = np.random.randn(*input_shape).astype(np.float32).flatten()
+        np_filter = np.random.randn(*filter_shape).astype(np.float32).flatten()
+        np_bias = np.random.randn(*bias_shape).astype(np.float32).flatten()
+        np_summand = np.random.randn(*summand_shape).astype(np.float32).flatten()
+        input_const_name, relu_1_name, filter_const_name, conv_name, \
+            bias_const_name, bias_add_name, summand_const_name, sum_name, \
+            relu_2_name = ("input_const", "relu_1", "filter_const", "conv", \
+                 "bias_const", "bias_add", "summand_const", "sum", "relu_2")
+        # Relu1
+        input_const_node = quantize_graph.create_constant_node(
+            input_const_name, np_input, dtypes.float32, shape=input_shape)
+        relu_1_node = quantize_graph.create_node("Relu", relu_1_name,
+                                                 [input_const_name])
+        quantize_graph.set_attr_dtype(relu_1_node, "T", dtypes.float32)
+        # Conv2D
+        filter_const_node = quantize_graph.create_constant_node(
+            filter_const_name, np_filter, dtypes.float32, shape=filter_shape)
+        conv_node = quantize_graph.create_node(
+              "Conv2D", conv_name, [relu_1_name, filter_const_name])
+        quantize_graph.set_attr_dtype(conv_node, "T", dtypes.float32)
+        quantize_graph.set_attr_int_list(conv_node, "strides", [1, 1, 1, 1])
+        quantize_graph.set_attr_string(conv_node, "padding", b"SAME")
+        # BiasAdd
+        bias_const_node = quantize_graph.create_constant_node(bias_const_name,
+            np_bias, dtypes.float32, shape=bias_shape)
+        bias_add_node = quantize_graph.create_node("BiasAdd", bias_add_name,
+            [conv_name, bias_const_name])
+        quantize_graph.set_attr_dtype(bias_add_node, "T", dtypes.float32)
+        # Add a summand. Note: summand shape should be same as conv2d output
+        summand_const_node = quantize_graph.create_constant_node(
+            summand_const_name, np_summand, dtypes.float32, shape=summand_shape)
+        sum_node = quantize_graph.create_node("AddN", sum_name,
+            [bias_add_name, summand_const_name])
+        quantize_graph.set_attr_int(sum_node, "N", 2)
+        quantize_graph.set_attr_dtype(sum_node, "T", dtypes.float32)
+        # Relu2
+        relu_2_node = quantize_graph.create_node("Relu", relu_2_name,
+                                                 [sum_name])
+        quantize_graph.set_attr_dtype(relu_2_node, "T", dtypes.float32)
+        # Add all nodes to the graph
+        float_graph_def.node.extend([input_const_node, relu_1_node,
+            filter_const_node, conv_node, bias_const_node, bias_add_node,
+            summand_const_node, sum_node, relu_2_node])
+        graph_test(float_graph_def, {}, [relu_2_name], log_graph=False,
+                   intel_cpu_eightbitize=True, excluded_ops=[],
+                   excluded_nodes=[], per_channel=True)
 
 if __name__ == "__main__":
     test.main()

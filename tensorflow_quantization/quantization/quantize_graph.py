@@ -376,7 +376,7 @@ def quantize_bias_eightbit(input_node, quantization_mode):
 # signed scaled mode of weight quantization.
 
 
-def intel_cpu_quantize_weight_eightbit(parent, input_node, quantization_mode="SCALED",
+def intel_cpu_quantize_weight_eightbit(parent, input_node, quantization_mode=b"SCALED",
                                        per_channel=False):
     """Returns replacement of constant weight node.
 
@@ -461,7 +461,7 @@ def intel_cpu_quantize_weight_eightbit(parent, input_node, quantization_mode="SC
     dequantize_node = create_node("Dequantize", input_node.name,
                                   [qint8_const_name, min_name, max_name])
     set_attr_dtype(dequantize_node, "T", dtypes.qint8)
-    set_attr_string(dequantize_node, "mode", 'SCALED')
+    set_attr_string(dequantize_node, "mode", b"SCALED")
     return [qint8_const_node, min_node, max_node, dequantize_node]
 
 
@@ -479,8 +479,8 @@ class GraphRewriter(object):
                  quantized_input_range,
                  fallback_quantization_range=None,
                  intel_cpu_eightbitize=False,
-                 excluded_ops=None,
-                 excluded_nodes=None,
+                 excluded_ops=[],
+                 excluded_nodes=[],
                  per_channel=False):
         """Sets up the class to rewrite a float graph.
 
@@ -1166,7 +1166,7 @@ class GraphRewriter(object):
                     self.state.output_node_stack[-4][3] = True  # Relu to be fused
                     bias_node_name = node_name_from_input(parent[0].input[1])
                     bias_node = self.nodes_map[bias_node_name]
-                    inputs_to_add_node = map(node_name_from_input, grand_parent[0].input)
+                    inputs_to_add_node = list(map(node_name_from_input, grand_parent[0].input))
                     try:
                         add_node_indx = 1 - inputs_to_add_node.index(
                             node_name_from_input(parent[0].name))
@@ -2177,10 +2177,10 @@ def main(unused_args):
             FLAGS.quantized_fallback_min, FLAGS.quantized_fallback_max
         ]
 
-    excluded_ops = None
+    excluded_ops = []
     if (FLAGS.excluded_ops is not None):
         excluded_ops = FLAGS.excluded_ops.split(",")
-    excluded_nodes = None
+    excluded_nodes = []
     if (FLAGS.excluded_nodes is not None):
         excluded_nodes = FLAGS.excluded_nodes.split(",")
     rewriter = GraphRewriter(tf_graph, FLAGS.mode,

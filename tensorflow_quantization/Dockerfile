@@ -20,6 +20,7 @@
 FROM ubuntu:18.04
 
 ARG TF_BUILD_VERSION=r1.14
+ARG BAZEL_VERSION=0.24.1
 ARG PYTHON="python"
 ARG PYTHON3_DEV=""
 ARG WHL_DIR="/tmp/pip"
@@ -67,7 +68,7 @@ RUN ${PIP} --no-cache-dir install \
     ${PYTHON} -m ipykernel.kernelspec
 
 # Set up Bazel
-ENV BAZEL_VERSION 0.23.0
+ENV BAZEL_VERSION ${BAZEL_VERSION}
 WORKDIR /workspace
 RUN mkdir /bazel && \
     cd /bazel && \

@@ -21,6 +21,7 @@ node() {
             sudo python3 -m pip install --no-cache-dir --upgrade pip==19.0.3 virtualenv!=16.3.0 tox==3.8.6
             """
         }
+
         stage('Style tests') {
             sh """
             #!/bin/bash -x
@@ -28,14 +29,6 @@ node() {
 
             cd tools/tensorflow_quantization
             make lint
-            """
-        }
-        stage('Unit tests') {
-            sh """
-            #!/bin/bash -x
-            set -e
-
-            sudo docker run --rm -e https_proxy -e http_proxy -e HTTPS_PROXY -e HTTP_PROXY -e no_proxy -e NO_PROXY quantization:latest /bin/bash -c "bazel test --config=mkl tensorflow/tools/quantization:quantize_graph_test"
             """
         }
 
@@ -46,6 +39,15 @@ node() {
 
             cd tools/tensorflow_quantization
             sudo -E make integration_test
+            """
+        }
+
+        stage('Unit tests') {
+            sh """
+            #!/bin/bash -x
+            set -e
+
+            sudo docker run --rm -e https_proxy -e http_proxy -e HTTPS_PROXY -e HTTP_PROXY -e no_proxy -e NO_PROXY quantization:latest /bin/bash -c "bazel test --config=mkl tensorflow/tools/quantization:quantize_graph_test"
             """
         }
 

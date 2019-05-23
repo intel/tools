@@ -35,8 +35,7 @@ node() {
             #!/bin/bash -x
             set -e
 
-            cd tools/tensorflow_quantization
-            make unit_test
+            sudo docker run --rm -e https_proxy -e http_proxy -e HTTPS_PROXY -e HTTP_PROXY -e no_proxy -e NO_PROXY quantization:latest /bin/bash -c "bazel test tensorflow/tools/quantization:quantize_graph_test"
             """
         }
 

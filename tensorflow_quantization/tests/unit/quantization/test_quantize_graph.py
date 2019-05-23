@@ -1061,27 +1061,27 @@ class IntelCpuQuantizeGraphTest(test.TestCase):
         np_bias = np.random.randn(*bias_shape).astype(np.float32).flatten()
 
         input_const_name, relu_1_name, filter_const_name, conv_name, \
-            bias_const_name, bias_add_name, relu_2_name = ("input_const", "relu_1", \
-                "filter_const", "conv", "bias_const", "bias_add", "relu_2")
+            bias_const_name, bias_add_name, relu_2_name = ("input_const", "relu_1",
+                                                           "filter_const", "conv", "bias_const", "bias_add", "relu_2")
         # Relu1
         input_const_node = quantize_graph.create_constant_node(input_const_name,
-            np_input, dtypes.float32, shape=input_shape)
+                                                               np_input, dtypes.float32, shape=input_shape)
         relu_1_node = quantize_graph.create_node("Relu", relu_1_name,
                                                  [input_const_name])
         quantize_graph.set_attr_dtype(relu_1_node, "T", dtypes.float32)
         # Conv2D
         filter_const_node = quantize_graph.create_constant_node(filter_const_name,
-            np_filter, dtypes.float32, shape=filter_shape)
+                                                                np_filter, dtypes.float32, shape=filter_shape)
         conv_node = quantize_graph.create_node(
-              "Conv2D", conv_name, [relu_1_name, filter_const_name])
+            "Conv2D", conv_name, [relu_1_name, filter_const_name])
         quantize_graph.set_attr_dtype(conv_node, "T", dtypes.float32)
         quantize_graph.set_attr_int_list(conv_node, "strides", [1, 1, 1, 1])
         quantize_graph.set_attr_string(conv_node, "padding", b"SAME")
         # BiasAdd
         bias_const_node = quantize_graph.create_constant_node(bias_const_name,
-            np_bias, dtypes.float32, shape=bias_shape)
+                                                              np_bias, dtypes.float32, shape=bias_shape)
         bias_add_node = quantize_graph.create_node("BiasAdd", bias_add_name,
-            [conv_name, bias_const_name])
+                                                   [conv_name, bias_const_name])
         quantize_graph.set_attr_dtype(bias_add_node, "T", dtypes.float32)
         # Relu2
         relu_2_node = quantize_graph.create_node("Relu", relu_2_name,
@@ -1089,8 +1089,8 @@ class IntelCpuQuantizeGraphTest(test.TestCase):
         quantize_graph.set_attr_dtype(relu_2_node, "T", dtypes.float32)
         # Add all nodes to the graph
         float_graph_def.node.extend([input_const_node, relu_1_node,
-            filter_const_node, conv_node, bias_const_node, bias_add_node,
-            relu_2_node])
+                                     filter_const_node, conv_node, bias_const_node, bias_add_node,
+                                     relu_2_node])
         graph_test(float_graph_def, {}, [relu_2_name], log_graph=False,
                    intel_cpu_eightbitize=True, excluded_ops=[],
                    excluded_nodes=[], per_channel=True)
@@ -1111,8 +1111,8 @@ class IntelCpuQuantizeGraphTest(test.TestCase):
         np_summand = np.random.randn(*summand_shape).astype(np.float32).flatten()
         input_const_name, relu_1_name, filter_const_name, conv_name, \
             bias_const_name, bias_add_name, summand_const_name, sum_name, \
-            relu_2_name = ("input_const", "relu_1", "filter_const", "conv", \
-                 "bias_const", "bias_add", "summand_const", "sum", "relu_2")
+            relu_2_name = ("input_const", "relu_1", "filter_const", "conv",
+                           "bias_const", "bias_add", "summand_const", "sum", "relu_2")
         # Relu1
         input_const_node = quantize_graph.create_constant_node(
             input_const_name, np_input, dtypes.float32, shape=input_shape)
@@ -1123,21 +1123,21 @@ class IntelCpuQuantizeGraphTest(test.TestCase):
         filter_const_node = quantize_graph.create_constant_node(
             filter_const_name, np_filter, dtypes.float32, shape=filter_shape)
         conv_node = quantize_graph.create_node(
-              "Conv2D", conv_name, [relu_1_name, filter_const_name])
+            "Conv2D", conv_name, [relu_1_name, filter_const_name])
         quantize_graph.set_attr_dtype(conv_node, "T", dtypes.float32)
         quantize_graph.set_attr_int_list(conv_node, "strides", [1, 1, 1, 1])
         quantize_graph.set_attr_string(conv_node, "padding", b"SAME")
         # BiasAdd
         bias_const_node = quantize_graph.create_constant_node(bias_const_name,
-            np_bias, dtypes.float32, shape=bias_shape)
+                                                              np_bias, dtypes.float32, shape=bias_shape)
         bias_add_node = quantize_graph.create_node("BiasAdd", bias_add_name,
-            [conv_name, bias_const_name])
+                                                   [conv_name, bias_const_name])
         quantize_graph.set_attr_dtype(bias_add_node, "T", dtypes.float32)
         # Add a summand. Note: summand shape should be same as conv2d output
         summand_const_node = quantize_graph.create_constant_node(
             summand_const_name, np_summand, dtypes.float32, shape=summand_shape)
         sum_node = quantize_graph.create_node("AddN", sum_name,
-            [bias_add_name, summand_const_name])
+                                              [bias_add_name, summand_const_name])
         quantize_graph.set_attr_int(sum_node, "N", 2)
         quantize_graph.set_attr_dtype(sum_node, "T", dtypes.float32)
         # Relu2
@@ -1146,11 +1146,12 @@ class IntelCpuQuantizeGraphTest(test.TestCase):
         quantize_graph.set_attr_dtype(relu_2_node, "T", dtypes.float32)
         # Add all nodes to the graph
         float_graph_def.node.extend([input_const_node, relu_1_node,
-            filter_const_node, conv_node, bias_const_node, bias_add_node,
-            summand_const_node, sum_node, relu_2_node])
+                                     filter_const_node, conv_node, bias_const_node, bias_add_node,
+                                     summand_const_node, sum_node, relu_2_node])
         graph_test(float_graph_def, {}, [relu_2_name], log_graph=False,
                    intel_cpu_eightbitize=True, excluded_ops=[],
                    excluded_nodes=[], per_channel=True)
+
 
 if __name__ == "__main__":
     test.main()

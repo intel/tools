@@ -654,7 +654,7 @@ class GraphRewriter(object):
     def round_nodes_recursively(self, current_node):
         """The entry point for simple rounding quantization."""
         if (current_node.name in self.already_visited
-            ) and self.already_visited[current_node.name]:
+                ) and self.already_visited[current_node.name]:
             return
         self.already_visited[current_node.name] = True
         for input_node_name in current_node.input:
@@ -1001,7 +1001,7 @@ class GraphRewriter(object):
             quantized_mat_mul_node = create_node("QuantizedMatMulWithBiasSumAndRelu",
                                                  quantized_mat_mul_name, all_input_names)
         elif bias_node and (not add_node_name) and relu_node_name:
-            if quantize_bias == True:
+            if quantize_bias:
                 quantized_bias = quantize_bias_eightbit(new_node, b"SCALED")
                 for n in quantized_bias:
                     self.add_output_graph_node(n)
@@ -1018,7 +1018,7 @@ class GraphRewriter(object):
                 set_attr_string(quantized_mat_mul_node, "input_quant_mode", b"MIN_FIRST")
         elif bias_node and bias_add_name and \
                 (not add_node_name) and (not relu_node_name):
-            if quantize_bias == True:
+            if quantize_bias:
                 quantized_bias = quantize_bias_eightbit(new_node, b"SCALED")
                 for n in quantized_bias:
                     self.add_output_graph_node(n)

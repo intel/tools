@@ -35,7 +35,7 @@ node() {
             #!/bin/bash -x
             set -e
 
-            sudo docker run --rm -e https_proxy -e http_proxy -e HTTPS_PROXY -e HTTP_PROXY -e no_proxy -e NO_PROXY quantization:latest /bin/bash -c "bazel test tensorflow/tools/quantization:quantize_graph_test"
+            sudo docker run --rm -e https_proxy -e http_proxy -e HTTPS_PROXY -e HTTP_PROXY -e no_proxy -e NO_PROXY quantization:latest /bin/bash -c "bazel test --config=mkl tensorflow/tools/quantization:quantize_graph_test"
             """
         }
 
@@ -54,7 +54,7 @@ node() {
             #!/bin/bash -x
             set -e
 
-            sudo docker run --rm -e https_proxy -e http_proxy -e HTTPS_PROXY -e HTTP_PROXY -e no_proxy -e NO_PROXY quantization:latest /bin/bash -c "bazel test tensorflow/tools/graph_transforms:all"
+            sudo docker run --rm -e https_proxy -e http_proxy -e HTTPS_PROXY -e HTTP_PROXY -e no_proxy -e NO_PROXY quantization:latest /bin/bash -c "bazel test --config=mkl tensorflow/tools/graph_transforms:all"
             """
         }
     }

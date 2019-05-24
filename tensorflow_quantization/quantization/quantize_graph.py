@@ -49,8 +49,6 @@ from tensorflow.python.platform import flags as flags_lib
 from tensorflow.python.platform import gfile
 from google.protobuf import text_format
 
-import common_flags
-
 flags = flags_lib
 FLAGS = flags.FLAGS
 
@@ -454,7 +452,7 @@ class GraphRewriter(object):
             of using a RequantizationRange node in the graph.
           excluded_ops: list of operations to be excluded from quantization
           excluded_nodes: list of nodes to be excluded from quantization
-    
+
         Raises:
           ValueError: Two nodes with the same name were found in the graph.
         """
@@ -596,8 +594,8 @@ class GraphRewriter(object):
 
     def round_nodes_recursively(self, current_node):
         """The entry point for simple rounding quantization."""
-        if (current_node.name in self.already_visited
-                ) and self.already_visited[current_node.name]:
+        if (current_node.name in self.already_visited) and \
+                self.already_visited[current_node.name]:
             return
         self.already_visited[current_node.name] = True
         for input_node_name in current_node.input:
@@ -725,7 +723,7 @@ class GraphRewriter(object):
 
         copy_without_eightbitize = True
         if (self.excluded_ops is None or current_node.op not in self.excluded_ops) and \
-            (self.excluded_nodes is None or current_node.name not in self.excluded_nodes):
+                (self.excluded_nodes is None or current_node.name not in self.excluded_nodes):
             # check if input nodes need to be eightbitized
             for i, input_node_name in enumerate(current_node.input):
                 quantize_input = False
@@ -897,7 +895,7 @@ class GraphRewriter(object):
             new_node = node_def_pb2.NodeDef()
             new_node.CopyFrom(bias_node)
             self.add_output_graph_node(new_node)
-            if quantize_bias == True:
+            if quantize_bias:
                 quantized_bias = quantize_bias_eightbit(new_node, b"SCALED")
                 for n in quantized_bias:
                     self.add_output_graph_node(n)
@@ -917,7 +915,7 @@ class GraphRewriter(object):
             new_node = node_def_pb2.NodeDef()
             new_node.CopyFrom(bias_node)
             self.add_output_graph_node(new_node)
-            if quantize_bias == True:
+            if quantize_bias:
                 quantized_bias = quantize_bias_eightbit(new_node, b"SCALED")
                 for n in quantized_bias:
                     self.add_output_graph_node(n)
@@ -932,7 +930,7 @@ class GraphRewriter(object):
             set_attr_dtype(quantized_mat_mul_node, "Tbias", dtypes.float32)
         else:
             quantized_mat_mul_name = original_node.name + "_eightbit_quantized_mat_mul"
-            quantized_mat_mul_node = create_node("QuantizedMatMul", quantized_conv_name,
+            quantized_mat_mul_node = create_node("QuantizedMatMul", quantized_mat_mul_name,
                                                  all_input_names)
         set_attr_dtype(quantized_mat_mul_node, "T1", dtypes.quint8)
         set_attr_dtype(quantized_mat_mul_node, "T2", dtypes.qint8)
@@ -1029,7 +1027,7 @@ class GraphRewriter(object):
             self.state.output_node_stack.pop()
 
         if current_node.op == "Conv2D" and should_quantize_conv and quantize_input \
-          and (current_node.name not in self.excluded_nodes):
+                and (current_node.name not in self.excluded_nodes):
             # match pattern for fusion with bias and relu
             grand_parent, parent = self.state.output_node_stack[-2:]
             if parent[0].op == "BiasAdd" and \
@@ -1117,26 +1115,26 @@ class GraphRewriter(object):
                 new_node.CopyFrom(current_node)
                 self.add_output_graph_node(new_node)
         elif current_node.op == "BiasAdd" and \
-                        self.state.output_node_stack[-1][3] == True \
-                          and (current_node.name not in self.excluded_nodes):
+                self.state.output_node_stack[-1][3] is True \
+                and (current_node.name not in self.excluded_nodes):
             pass  # This op is already processed by fused quantization
         elif (current_node.op == "Relu" or current_node.op == "Relu6") \
-                and self.state.output_node_stack[-1][3] == True \
-                  and (current_node.name not in self.excluded_nodes):
+                and self.state.output_node_stack[-1][3] is True \
+                and (current_node.name not in self.excluded_nodes):
             pass  # This op is already processed by fused quantization
         elif current_node.op in ("AddN", "Add") and \
-                        self.state.output_node_stack[-1][3] == True \
-                          and (current_node.name not in self.excluded_nodes):
+                self.state.output_node_stack[-1][3] is True \
+                and (current_node.name not in self.excluded_nodes):
             pass  # AddN op is already processed by fused quatization
         elif (current_node.op == "MaxPool" or current_node.op == "AvgPool") \
-          and (current_node.op not in self.excluded_ops) \
-            and (current_node.name not in self.excluded_nodes):
+                and (current_node.op not in self.excluded_ops) \
+                and (current_node.name not in self.excluded_nodes):
             self.eightbitize_single_input_tensor_node(current_node,
                                                       self.add_pool_function)
         elif (current_node.op == "ConcatV2" and should_quantize_concat and
-                      dtypes.as_dtype(current_node.attr["T"].type) == dtypes.float32 and
-                      current_node.op not in self.excluded_ops) \
-                      and (current_node.name not in self.excluded_nodes):
+                dtypes.as_dtype(current_node.attr["T"].type) == dtypes.float32 and
+                current_node.op not in self.excluded_ops) \
+                and (current_node.name not in self.excluded_nodes):
             self.eightbitize_concatv2_node(current_node)
         elif current_node.op == "Const" and (current_node.name not in self.excluded_nodes):
             parent = self.state.output_node_stack[-1]

@@ -991,7 +991,7 @@ class GraphRewriter(object):
                                           relu_node_name=None):
         """Replaces a matmul node with the eight bit equivalent sub-graph."""
         all_input_names = self.add_eightbit_prologue_nodes_matmul(original_node)
-        quantize_bias = False
+
         if bias_node and add_node_name and relu_node_name:
             all_input_names = all_input_names[:2] + [bias_node.name] + \
                 all_input_names[2:] + [add_node_name]
@@ -1237,8 +1237,9 @@ class GraphRewriter(object):
                 and (current_node.name not in self.excluded_nodes):
             self.eightbitize_single_input_tensor_node(current_node,
                                                       self.add_pool_function)
-        elif (current_node.op == "ConcatV2" and should_quantize_concat
-              and dtypes.as_dtype(current_node.attr["T"].type) == dtypes.float32):
+        elif (current_node.op == "ConcatV2" and
+          should_quantize_concat and
+          dtypes.as_dtype(current_node.attr["T"].type) == dtypes.float32):
             self.eightbitize_concatv2_node(current_node)
         elif current_node.op == "Const":
             parent = self.state.output_node_stack[-1]

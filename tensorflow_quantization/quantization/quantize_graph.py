@@ -1238,8 +1238,8 @@ class GraphRewriter(object):
             self.eightbitize_single_input_tensor_node(current_node,
                                                       self.add_pool_function)
         elif (current_node.op == "ConcatV2" and
-          should_quantize_concat and
-          dtypes.as_dtype(current_node.attr["T"].type) == dtypes.float32):
+              should_quantize_concat and
+              dtypes.as_dtype(current_node.attr["T"].type) == dtypes.float32):
             self.eightbitize_concatv2_node(current_node)
         elif current_node.op == "Const":
             parent = self.state.output_node_stack[-1]

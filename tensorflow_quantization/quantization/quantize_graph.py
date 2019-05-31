@@ -999,19 +999,6 @@ class GraphRewriter(object):
             quantized_mat_mul_node = create_node("QuantizedMatMulWithBiasSumAndRelu",
                                                  quantized_mat_mul_name, all_input_names)
         elif bias_node and (not add_node_name) and relu_node_name:
-#<<<<<<< new-perchannel
-#=======
-#            new_node = node_def_pb2.NodeDef()
-#            new_node.CopyFrom(bias_node)
-#            self.add_output_graph_node(new_node)
-#>>>>>>> develop
-#            if quantize_bias:
-#                quantized_bias = quantize_bias_eightbit(new_node, b"SCALED")
-#                for n in quantized_bias:
-#                    self.add_output_graph_node(n)
-#                all_input_names = all_input_names[:2] + [quantized_bias[0].name] + \
-#                    all_input_names[2:] + [quantized_bias[1].name] + [quantized_bias[2].name]
-#            else:
             all_input_names = all_input_names[:2] + [bias_node.name] + \
                 all_input_names[2:]
 
@@ -1023,19 +1010,6 @@ class GraphRewriter(object):
                 set_attr_string(quantized_mat_mul_node, "input_quant_mode", b"MIN_FIRST")
         elif bias_node and bias_add_name and \
                 (not add_node_name) and (not relu_node_name):
-#<<<<<<< new-perchannel
-#=======
-#            new_node = node_def_pb2.NodeDef()
-#            new_node.CopyFrom(bias_node)
-#            self.add_output_graph_node(new_node)
-#>>>>>>> develop
-#            if quantize_bias:
-#                quantized_bias = quantize_bias_eightbit(new_node, b"SCALED")
-#                for n in quantized_bias:
-#                    self.add_output_graph_node(n)
-#                all_input_names = all_input_names[:2] + [quantized_bias[0].name] + \
-#                    all_input_names[2:] + [quantized_bias[1].name] + [quantized_bias[2].name]
-#            else:
             all_input_names = all_input_names[:2] + [bias_node.name] + \
                 all_input_names[2:]
 
@@ -1147,24 +1121,13 @@ class GraphRewriter(object):
             self.intel_cpu_eightbitize_nodes_recursively(input_node)
             self.state.output_node_stack.pop()
 
-#<<<<<<< new-perchannel
-        # Get the index past the last item of self.output_graph.node which
-        # would be start index for newly added nodes in the quantized graph.
-        # This is used for maintaining a dictionary of nodes map in the
-        # dynamically grown output graph.
         start_idx = len(self.output_graph.node)
 
         # TODO(intel-tf): Conv2D + Relu{6} is not fused currently. Add this
         # fusion later.
         if current_node.op in ("Conv2D", "DepthwiseConv2dNative") \
                 and should_quantize_conv and quantize_input:
-          # and (current_node.name not in self.excluded_nodes):
             # Match pattern for fusion with bias and relu
-#=======
-#        if current_node.op == "Conv2D" and should_quantize_conv and quantize_input \
-#                and (current_node.name not in self.excluded_nodes):
-            # match pattern for fusion with bias and relu
-#>>>>>>> develop
             grand_parent, parent = self.state.output_node_stack[-2:]
             if parent[0].op in ("BiasAdd", "Add") and (grand_parent[0].op in ("Relu", "Relu6")):
                 self.state.output_node_stack[-2][3] = True  # BiasAdd to be fused
@@ -1216,7 +1179,6 @@ class GraphRewriter(object):
                                                      parent[0].name)
             else:
                 self.intel_cpu_eightbitize_conv_node(current_node)
-#<<<<<<< new-perchannel
 
         # TODO: Clean up model specific code
         # elif current_node.op == "MatMul" and should_quantize_conv and quantize_input \
@@ -1270,81 +1232,13 @@ class GraphRewriter(object):
         elif (current_node.op in ("Relu", "Relu6")) \
                 and self.state.output_node_stack[-1][3]:
             pass  # This op is already processed by fused quantization
-#=======
-#        elif current_node.op == "MatMul" and should_quantize_conv and quantize_input \
-#                and FLAGS.model_name in ["wide_deep_large_ds"]:
-#            # match pattern for fusion with bias and relu for Wide&Deep
-#            grand_parent, parent = self.state.output_node_stack[-2:]
-#            if parent[0].op == "BiasAdd" and \
-#                    (grand_parent[0].op == "Relu" or grand_parent[0].op == "Relu6"):
-#                self.state.output_node_stack[-2][3] = True  # BiasAdd to be fused
-#                self.state.output_node_stack[-3][3] = True  # Relu to be fused
-#                bias_node_name = node_name_from_input(parent[0].input[1])
-#                bias_node = self.nodes_map[bias_node_name]
-#                self.intel_cpu_eightbitize_matmul_node(current_node, bias_node, None,
-#                                                       None, grand_parent[0].name)
-#            elif parent[0].op == "BiasAdd" and grand_parent[0].op in ("AddN", "Add"):
-#                grand_grand_parent = self.state.output_node_stack[-3]
-#                if grand_grand_parent[0].op in ("Relu", "Relu6") \
-#                        and (not self.state.output_node_stack[-3][3]) \
-#                        and (not self.state.output_node_stack[-4][3]):
-#                    self.state.output_node_stack[-2][3] = True  # BiasAdd to be fused
-#                    self.state.output_node_stack[-3][3] = True  # AddN to be fused
-#                    self.state.output_node_stack[-4][3] = True  # Relu to be fused
-#                    bias_node_name = node_name_from_input(parent[0].input[1])
-#                    bias_node = self.nodes_map[bias_node_name]
-#                    add_node_name = node_name_from_input(grand_parent[0].input[0])
-#                    self.intel_cpu_eightbitize_matmul_node(current_node, bias_node, None,
-#                                                           add_node_name,
-#                                                           grand_grand_parent[0].name)
-#                elif (not self.state.output_node_stack[-2][3]):  # Fuse BiasAdd then
-#                    self.state.output_node_stack[-2][3] = True  # BiasAdd to be fused
-#                    bias_node_name = node_name_from_input(parent[0].input[1])
-#                    bias_node = self.nodes_map[bias_node_name]
-#                    self.intel_cpu_eightbitize_matmul_node(current_node, bias_node,
-#                                                           parent[0].name)
-#                else:
-#                    self.intel_cpu_eightbitize_matmul_node(current_node)
-#            elif parent[0].op == "BiasAdd" and \
-#                    (not self.state.output_node_stack[-2][3]):
-#                self.state.output_node_stack[-2][3] = True  # BiasAdd to be fused
-#                bias_node_name = node_name_from_input(parent[0].input[1])
-#                bias_node = self.nodes_map[bias_node_name]
-#                self.intel_cpu_eightbitize_matmul_node(current_node, bias_node,
-#                                                       parent[0].name)
-#            else:
-#                new_node = node_def_pb2.NodeDef()
-#                new_node.CopyFrom(current_node)
-#                self.add_output_graph_node(new_node)
-#        elif current_node.op == "BiasAdd" and \
-#                self.state.output_node_stack[-1][3] is True \
-#                and (current_node.name not in self.excluded_nodes):
-#            pass  # This op is already processed by fused quantization
-#        elif (current_node.op == "Relu" or current_node.op == "Relu6") \
-#                and self.state.output_node_stack[-1][3] is True \
-#                and (current_node.name not in self.excluded_nodes):
-#            pass  # This op is already processed by fused quantization
-#        elif current_node.op in ("AddN", "Add") and \
-#                self.state.output_node_stack[-1][3] is True \
-#                and (current_node.name not in self.excluded_nodes):
-#            pass  # AddN op is already processed by fused quatization
-#>>>>>>> develop
         elif (current_node.op == "MaxPool" or current_node.op == "AvgPool") \
                 and (current_node.op not in self.excluded_ops) \
                 and (current_node.name not in self.excluded_nodes):
             self.eightbitize_single_input_tensor_node(current_node,
                                                       self.add_pool_function)
-#<<<<<<< new-perchannel
         elif (current_node.op == "ConcatV2" and should_quantize_concat
               and dtypes.as_dtype(current_node.attr["T"].type) == dtypes.float32):
-            # current_node.op not in self.excluded_ops) \
-            # and (current_node.name not in self.excluded_nodes):
-#=======
-#        elif (current_node.op == "ConcatV2" and should_quantize_concat and
-#                dtypes.as_dtype(current_node.attr["T"].type) == dtypes.float32 and
-#                current_node.op not in self.excluded_ops) \
-#                and (current_node.name not in self.excluded_nodes):
-#>>>>>>> develop
             self.eightbitize_concatv2_node(current_node)
         elif current_node.op == "Const":
             parent = self.state.output_node_stack[-1]

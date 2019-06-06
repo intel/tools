@@ -52,6 +52,7 @@ from google.protobuf import text_format
 flags = flags_lib
 FLAGS = flags.FLAGS
 
+flags.DEFINE_string("input", "", """Path to the input graph.""")
 flags.DEFINE_boolean("print_nodes", False, """Lists all nodes in the model.""")
 flags.DEFINE_string("output_node_names", "",
                     """Output node names, comma separated.""")
@@ -2116,6 +2117,7 @@ class GraphRewriter(object):
 
 
 def main(unused_args):
+    print ("FLAGS: {}".format(str(FLAGS)))
     if not gfile.Exists(FLAGS.input):
         print("Input graph file '" + FLAGS.input + "' does not exist!")
         return -1

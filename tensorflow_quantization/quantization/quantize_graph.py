@@ -2117,7 +2117,7 @@ class GraphRewriter(object):
 
 
 def main(unused_args):
-    print ("FLAGS: {}".format(str(FLAGS)))
+    print("FLAGS: {}".format(str(FLAGS)))
     if not gfile.Exists(FLAGS.input):
         print("Input graph file '" + FLAGS.input + "' does not exist!")
         return -1

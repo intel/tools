@@ -50,12 +50,12 @@ cd ${TF_REPO}
 QUANTIZATION_TAG="quantization:latest"
 echo "Building quantization tools docker image with tag: ${QUANTIZATION_TAG}" | tee -a ${LOGS}
 
-#docker build -f Dockerfile \
-#    -t  ${QUANTIZATION_TAG} \
-#    --build-arg HTTP_PROXY=${HTTP_PROXY} \
-#    --build-arg HTTPS_PROXY=${HTTPS_PROXY} \
-#    --build-arg http_proxy=${http_proxy} \
-#    --build-arg https_proxy=${https_proxy} . | tee -a ${LOGS}
+docker build -f Dockerfile \
+    -t  ${QUANTIZATION_TAG} \
+    --build-arg HTTP_PROXY=${HTTP_PROXY} \
+    --build-arg HTTPS_PROXY=${HTTPS_PROXY} \
+    --build-arg http_proxy=${http_proxy} \
+    --build-arg https_proxy=${https_proxy} . | tee -a ${LOGS}
 
 if [ "${PIPESTATUS[0]}" -eq "0" ]
 then

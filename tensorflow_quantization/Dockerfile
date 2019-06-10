@@ -19,7 +19,7 @@
 
 FROM ubuntu:18.04
 
-ARG TF_BUILD_VERSION=r1.14
+ARG TF_BUILD_VERSION=v1.14.0-rc0
 ARG BAZEL_VERSION=0.24.1
 ARG PYTHON="python"
 ARG PYTHON3_DEV=""
@@ -55,6 +55,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends --fix-missing \
 
 RUN ${PIP} --no-cache-dir install \
         Pillow \
+        future \
         h5py \
         ipykernel \
         keras_applications \
@@ -110,14 +111,12 @@ RUN cp .bazelrc /root/.mkl.bazelrc
 RUN echo "import /root/.mkl.bazelrc" >>/root/.bazelrc
 
 RUN tensorflow/tools/ci_build/builds/configured CPU \
-    bazel --bazelrc=/root/.bazelrc build -c opt \
+    bazel --bazelrc=/root/.bazelrc build -c opt --config=mkl \
     tensorflow/tools/pip_package:build_pip_package && \
     bazel-bin/tensorflow/tools/pip_package/build_pip_package "${WHL_DIR}" && \
     ${PIP} --no-cache-dir install --upgrade "${WHL_DIR}"/tensorflow-*.whl && \
-    rm -rf /root/.cache
-# Clean up Bazel cache when done.
-RUN bazel clean --expunge --color=yes && \
-    rm -rf /root/.cache
+    bazel clean --expunge --color=yes && \
+    rm -rf /root/.cache 
 
 # Update graph_transforms files with customizations
 COPY graph_transforms/* ${TF_WORKSPACE}/tensorflow/tools/graph_transforms/

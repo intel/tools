@@ -53,6 +53,11 @@ flags = flags_lib
 FLAGS = flags.FLAGS
 
 flags.DEFINE_string("input", "", """Path to the input graph.""")
+flags.DEFINE_string("output", "", """Path to the output graph.""")
+flags.DEFINE_boolean("input_binary", True,
+                    """Whether or not the input file is in binary format.""")
+flags.DEFINE_boolean("output_binary", True,
+                    """Whether or not the output file is in binary format.""")
 flags.DEFINE_boolean("print_nodes", False, """Lists all nodes in the model.""")
 flags.DEFINE_string("output_node_names", "",
                     """Output node names, comma separated.""")

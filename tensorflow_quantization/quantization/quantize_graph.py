@@ -62,7 +62,7 @@ flags.DEFINE_boolean("print_nodes", False, """Lists all nodes in the model.""")
 flags.DEFINE_string("output_node_names", "",
                     """Output node names, comma separated.""")
 flags.DEFINE_integer("bitdepth", 8,
-                     """How many bits to quantize the graph to.""")
+                    """How many bits to quantize the graph to.""")
 flags.DEFINE_string("mode", "round",
                     """What transformation to apply (round, quantize,"""
                     """ eightbit, weights, or weights_rounded).""")
@@ -70,42 +70,38 @@ flags.DEFINE_string("test_input_dims", "1,224,224,3",
                     """The size of the input tensor to use when testing a"""
                     """ graph loaded from a file.""")
 flags.DEFINE_boolean("strip_redundant_quantization", True,
-                     """Removes redundant dequantize/quantize pairs.""")
+                    """Removes redundant dequantize/quantize pairs.""")
 flags.DEFINE_boolean("quantized_input", False,
-                     "If true, assume Placeholders are quantized with values "
-                     "covering [--quantized_input_min,--quantized_input_max]. "
-                     "Only supported when --mode=eightbit")
+                    "If true, assume Placeholders are quantized with values "
+                    "covering [--quantized_input_min,--quantized_input_max]. "
+                    "Only supported when --mode=eightbit")
 flags.DEFINE_float("quantized_input_min", 0,
-                   "The minimum of the actual input range when "
-                   "--quantized_input")
+                    "The minimum of the actual input range when "
+                    "--quantized_input")
 flags.DEFINE_float("quantized_input_max", 1,
-                   "The maximum of the actual input range when "
-                   "--quantized_input")
-flags.DEFINE_float(
-    "quantized_fallback_min", None,
-    "The fallback 'min' value to use for layers which lack min-max "
-    "information. Note: this should be considered a coarse tool just good "
-    "enough for experimentation purposes, since graphs quantized in this way "
-    "would be very inaccurate.")
-flags.DEFINE_float(
-    "quantized_fallback_max", None,
-    "The fallback 'max' value to use for layers which lack min-max "
-    "information. Note: this should be considered a coarse tool just good "
-    "enough for experimentation purposes, since graphs quantized in this way "
-    "would be very inaccurate.")
-flags.DEFINE_boolean(
-    "intel_cpu_eightbitize", False,
-    "If true eightbitized graph will include fused quantized"
-    "nodes in the output_graph for Intel CPU.")
+                    "The maximum of the actual input range when "
+                    "--quantized_input")
+flags.DEFINE_float("quantized_fallback_min", None,
+                    "The fallback 'min' value to use for layers which lack min-max "
+                    "information. Note: this should be considered a coarse tool just good "
+                    "enough for experimentation purposes, since graphs quantized in this way "
+                    "would be very inaccurate.")
+flags.DEFINE_float("quantized_fallback_max", None,
+                    "The fallback 'max' value to use for layers which lack min-max "
+                    "information. Note: this should be considered a coarse tool just good "
+                    "enough for experimentation purposes, since graphs quantized in this way "
+                    "would be very inaccurate.")
+flags.DEFINE_boolean("intel_cpu_eightbitize", False,
+                    "If true eightbitized graph will include fused quantized"
+                    "nodes in the output_graph for Intel CPU.")
 flags.DEFINE_string("model_name", "", """Include model specific optimizations.""")
 flags.DEFINE_string("excluded_ops", "",
                     """operations to be excluded, comma separated.""")
 flags.DEFINE_string("excluded_nodes", "",
                     """Nodes to be excluded, comma separated.""")
-flags.DEFINE_boolean(
-    "per_channel", False,
-    "If true weights will be quantized per-output-channel for Conv2D"
-    "and its fusios.")
+flags.DEFINE_boolean("per_channel", False,
+                    "If true weights will be quantized per-output-channel for Conv2D"
+                    "and its fusios.")
 
 
 def print_input_nodes(current_node, nodes_map, indent, already_visited):

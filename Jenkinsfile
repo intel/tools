@@ -7,6 +7,17 @@ node() {
         // pull the code
         dir('tools') {
             checkout scm
+            withCredentials([string(credentialsId: 'intel-models-repo', variable: 'INTEL_MODELS_REPO')]) {
+                checkout([$class                           : 'GitSCM',
+                    branches                         : [[name: 'develop']],
+                    browser                          : [$class: 'AssemblaWeb', repoUrl: ''],
+                    doGenerateSubmoduleConfigurations: false,
+                    extensions                       : [[$class           : 'RelativeTargetDirectory',
+                                                         relativeTargetDir: 'models']],
+                    submoduleCfg                     : [],
+                    userRemoteConfigs                : [[credentialsId: 'aipgbot-orca',
+                                                         url          : "${INTEL_MODELS_REPO}"]]])
+            }
         }
 
         stage('Install dependencies') {
@@ -33,13 +44,33 @@ node() {
         }
 
         stage('Integration tests') {
-            sh """
-            #!/bin/bash -x
-            set -e
+            try
+            {
+                sh """
+                #!/bin/bash -x
+                set -e
 
-            cd tools/tensorflow_quantization
-            sudo -E make integration_test
-            """
+                # dataset real paths, to be changed when running the integration tests on a local machine.
+                export IMAGENET_TF_DATASET=/tf_dataset/dataset/TF_Imagenet_FullData
+                export COCO_TF_DATASET=/tf_dataset/dataset/fastrcnn/coco-data
+                export COCO_TF_SSDVGG16=/tf_dataset/dataset/SSDvgg16/val2017_tfrecords
+
+                cd tools/tensorflow_quantization
+                export INTEL_MODELS=${WORKSPACE}/tools/models
+                sudo -E make integration_test
+                """
+            } finally {
+                sh """
+                #!/bin/bash -x
+                set -e
+
+                MOUNTED_DIRECTORY=${WORKSPACE}/tools/tensorflow_quantization/mounted_dir
+                # clean up after the test is done
+                if [ -d \$MOUNTED_DIRECTORY ]; then
+                    sudo rm -rf \$MOUNTED_DIRECTORY
+                fi
+                """
+            }
         }
 
         stage('Unit tests') {

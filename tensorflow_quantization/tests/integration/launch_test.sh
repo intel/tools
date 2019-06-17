@@ -24,11 +24,33 @@ set -x
 cd ../../
 
 TF_REPO=$(pwd)
-OUTPUT=${TF_REPO}/output
+MOUNTED_DIR=${TF_REPO}/mounted_dir
+OUTPUT=${MOUNTED_DIR}/output
+DATASET=${MOUNTED_DIR}/dataset
+INTEL_MODELS=${INTEL_MODELS:-${MOUNTED_DIR}/models}
 LOGS=${OUTPUT}/test_logs.txt
+
+if [ ! -d ${MOUNTED_DIR} ]; then
+    mkdir ${MOUNTED_DIR}
+fi
+
+if [ ! -d ${DATASET} ]; then
+    # Copy datasets from an existing shared location on SKX nodes to the mounted directory.
+    mkdir ${DATASET}
+    cd ${DATASET}
+
+    # when adding new models, please copy the required dataset if it was not already copied from /tf_dataset/dataset/ here.
+    mkdir imagenet-data && cp ${IMAGENET_TF_DATASET}/* ${DATASET}/imagenet-data
+    mkdir coco-data && cp ${COCO_TF_DATASET}/* ${DATASET}/coco-data
+    mkdir coco-data-ssdvgg16 && cp ${COCO_TF_SSDVGG16}/* ${DATASET}/coco-data-ssdvgg16
+fi
 
 # OUTPUT directory exists when test fails,
 # so we need to clean up and re-create new one for next test run.
+
+# NOTE:
+# The supported models training datasets are required, and expected to be copied/exist in the MOUNTED_DIR directory.
+# This is for generating the quantized graph min_max ranges (in the data calibration step).
 if [ -d ${OUTPUT} ]
 then
     rm -rf ${OUTPUT}
@@ -42,6 +64,13 @@ then
     exit 1
 else
     echo "Created output directory for running test scripts at: ${OUTPUT}" | tee ${LOGS}
+fi
+
+if [ ! -d ${INTEL_MODELS} ]; then
+    cd ${MOUNTED_DIR}
+    git clone https://github.com/IntelAI/models.git
+else
+    cp -r ${INTEL_MODELS} ${OUTPUT}
 fi
 
 cd ${TF_REPO}
@@ -63,10 +92,10 @@ then
     echo "******** Running Quantization Test Scripts ********" | tee -a ${LOGS}
     python launch_quantization.py \
     --docker-image ${QUANTIZATION_TAG} \
-    --pre-trained-model-dir ${OUTPUT} \
+    --pre-trained-model-dir ${MOUNTED_DIR} \
     --verbose --test | tee -a ${LOGS}
 
-    if [ "${PIPESTATUS[0]}" -ne "0" ] || [[ "`grep 'usage: bazel-bin/' ${LOGS} > /dev/null`" != "" ]]
+    if [ "${PIPESTATUS[0]}" -ne "0" ] && [ "${PIPESTATUS[0]}" -ne "124" ] || [[ "`grep 'usage: bazel-bin/' ${LOGS} > /dev/null`" != "" ]]
     then
         echo "Test scripts run FAILED !!" | tee -a ${LOGS}
         echo "Please check logs at: ${LOGS}" | tee -a ${LOGS}

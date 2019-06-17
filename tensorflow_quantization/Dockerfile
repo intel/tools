@@ -58,6 +58,7 @@ RUN ${PIP} --no-cache-dir install \
         future \
         h5py \
         ipykernel \
+        future>=0.17.1 \
         keras_applications \
         keras_preprocessing \
         mock \

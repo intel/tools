@@ -106,12 +106,13 @@ class LaunchQuantization(object):
         tf_workspace = workspace + "/tensorflow"
 
         if args.test:
-            mount_output = workspace + "/output"
+            mount_output = workspace + "/mounted_dir"
             mount_test_workspace = workspace + "/tests"
 
             # output and test envs
             env_vars = ["--env", "{}={}".format("MOUNT_OUTPUT", mount_output),
-                        "--env", "{}={}".format("TEST_WORKSPACE", mount_test_workspace)]
+                        "--env", "{}={}".format("TEST_WORKSPACE", mount_test_workspace),
+                        "--env", "{}={}".format("DEBIAN_FRONTEND", "noninteractive")]
 
             # output and test volumes
             test_workspace = os.path.join(
@@ -170,7 +171,7 @@ class LaunchQuantization(object):
         except KeyboardInterrupt:
             os.killpg(os.getpgid(p.pid), signal.SIGKILL)
 
-        if p.returncode != 0:
+        if p.returncode != 0 and p.returncode != 124:
             raise SystemExit(
                 "\nERROR running the following docker command:\n{}\nDocker error code: {}\nstderr: {}".format(
                     " ".join(docker_run_cmd), p.returncode, err))

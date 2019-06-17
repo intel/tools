@@ -31,7 +31,10 @@ echo "        ${PRE_TRAINED_MODEL_DIR} mounted on: ${MOUNT_OUTPUT}"
 INTEL_MODELS_BUCKET="https://storage.googleapis.com/intel-optimized-tensorflow/models"
 
 # output directory for tests
-OUTPUT=${MOUNT_OUTPUT}
+OUTPUT=${MOUNT_OUTPUT}/output
+
+# mounted datasets directory
+DATASET=${MOUNT_OUTPUT}/dataset
 
 function test_output_graph(){
     test -f ${OUTPUT_GRAPH}
@@ -63,9 +66,9 @@ function run_quantize_model_test(){
     echo "${model}_int8_dynamic_range_graph.pb is successfully created."
     echo ""
 
-    if [ ${model}=="rfcn" ]; then
+    if [ ${model}=="rfcn" ] || [ ${model}=="resnet101" ]; then
         # Apply Pad Fusion optimization:
-        echo "Apply Pad Fusion optimization for the int8 dynamic range R-FCN graph..."
+        echo "Apply Pad Fusion optimization for the int8 dynamic range ${model} graph..."
         bazel-bin/tensorflow/tools/graph_transforms/transform_graph \
         --in_graph=${OUTPUT}/${model}_int8_dynamic_range_graph.pb \
         --out_graph=${OUTPUT}/${model}_int8_dynamic_range_graph.pb \
@@ -78,7 +81,7 @@ function run_quantize_model_test(){
     # Generate graph with logging
     echo "Generate the graph with logging for ${model} model..."
     bazel-bin/tensorflow/tools/graph_transforms/transform_graph \
-    --in_graph=/${OUTPUT}/${model}_int8_dynamic_range_graph.pb \
+    --in_graph=${OUTPUT}/${model}_int8_dynamic_range_graph.pb \
     --out_graph=${OUTPUT}/${model}_int8_logged_graph.pb \
     --transforms="${TRANSFORMS1}"
 
@@ -87,10 +90,21 @@ function run_quantize_model_test(){
     echo "${model}_int8_logged_graph.pb is successfully created."
     echo ""
 
+    # Model Calibration: Generate the model min_max_log.txt file
+    echo "Generate ${model} min_max_log.txt file ..."
+    if [ ${model} == "inceptionv3" ] || [ ${model} == "inceptionv4" ] || [ ${model} == "inception_resnet_v2" ] || [ ${model} == "resnet101" ]; then
+        calibrate_image_recognition_common
+    elif [ ${model} == "faster_rcnn" ] || [ ${model} == "rfcn" ]; then
+        calibrate_object_detection_common
+    else
+        calibrate_${model}
+    fi
+
     # Convert the dynamic range int8 graph to freezed range graph
+    cd ${TF_WORKSPACE}
     echo "Freeze the dynamic range graph using the min max constants from ${model}_min_max_log.txt..."
     bazel-bin/tensorflow/tools/graph_transforms/transform_graph \
-    --in_graph=/${OUTPUT}/${model}_int8_dynamic_range_graph.pb \
+    --in_graph=${OUTPUT}/${model}_int8_dynamic_range_graph.pb \
     --out_graph=${OUTPUT}/${model}_int8_freezedrange_graph.pb \
     --transforms="${TRANSFORMS2}"
 
@@ -109,7 +123,7 @@ function run_quantize_model_test(){
 
     OUTPUT_GRAPH=${OUTPUT}/${model}_int8_final_fused_graph.pb test_output_graph
     echo ""
-    echo "The int8 model is successfully optimized in ${model}_int8_final_fused_graph.pb"
+    echo "The ${model} int8 model is successfully optimized in ${model}_int8_final_fused_graph.pb"
     echo ""
 }
 
@@ -146,7 +160,7 @@ function faster_rcnn(){
     TRANSFORMS1='insert_logging(op=RequantizationRange, show_name=true, message="__requant_min_max:")'
 
     # to freeze the dynamic range graph
-    TRANSFORMS2='freeze_requantization_ranges(min_max_log_file="/workspace/tests/calibration_data/faster_rcnn_min_max_log.txt")'
+    TRANSFORMS2='freeze_requantization_ranges(min_max_log_file="/workspace/mounted_dir/output/faster_rcnn_min_max_log.txt")'
 
     # to get the fused and optimized final int8 graph
     TRANSFORMS3='fuse_quantized_conv_and_requantize strip_unused_nodes'
@@ -169,7 +183,7 @@ function inceptionv3() {
     TRANSFORMS1='insert_logging(op=RequantizationRange, show_name=true, message="__requant_min_max:")'
 
     # to freeze the dynamic range graph
-    TRANSFORMS2='freeze_requantization_ranges(min_max_log_file="/workspace/tests/calibration_data/inceptionv3_min_max_log.txt")'
+    TRANSFORMS2='freeze_requantization_ranges(min_max_log_file="/workspace/mounted_dir/output/inceptionv3_min_max_log.txt")'
 
     # to get the fused and optimized final int8 graph
     TRANSFORMS3='fuse_quantized_conv_and_requantize strip_unused_nodes'
@@ -203,7 +217,7 @@ function inceptionv4() {
     TRANSFORMS1='insert_logging(op=RequantizationRange, show_name=true, message="__requant_min_max:")'
 
     # to freeze the dynamic range graph
-    TRANSFORMS2='freeze_requantization_ranges(min_max_log_file="/workspace/tests/calibration_data/inceptionv4_min_max_log.txt")'
+    TRANSFORMS2='freeze_requantization_ranges(min_max_log_file="/workspace/mounted_dir/output/inceptionv4_min_max_log.txt")'
 
     # to get the fused and optimized final int8 graph
     TRANSFORMS3='fuse_quantized_conv_and_requantize strip_unused_nodes'
@@ -237,7 +251,7 @@ function inception_resnet_v2() {
     TRANSFORMS1='insert_logging(op=RequantizationRange, show_name=true, message="__requant_min_max:")'
 
     # to freeze the dynamic range graph
-    TRANSFORMS2='freeze_requantization_ranges(min_max_log_file="/workspace/tests/calibration_data/inception_resnet_v2_min_max_log.txt")'
+    TRANSFORMS2='freeze_requantization_ranges(min_max_log_file="/workspace/mounted_dir/output/inception_resnet_v2_min_max_log.txt")'
 
     # to rerange quantize concat and get the fused optimized final int8 graph
     TRANSFORMS3='rerange_quantized_concat fuse_quantized_conv_and_requantize strip_unused_nodes'
@@ -276,7 +290,7 @@ function rfcn(){
     TRANSFORMS1='insert_logging(op=RequantizationRange, show_name=true, message="__requant_min_max:")'
 
     # to freeze the dynamic range graph
-    TRANSFORMS2='freeze_requantization_ranges(min_max_log_file="/workspace/tests/calibration_data/rfcn_min_max_log.txt")'
+    TRANSFORMS2='freeze_requantization_ranges(min_max_log_file="/workspace/mounted_dir/output/rfcn_min_max_log.txt")'
 
     # to get the fused and optimized final int8 graph
     TRANSFORMS3='fuse_quantized_conv_and_requantize strip_unused_nodes'
@@ -294,10 +308,10 @@ function resnet101(){
     FP32_MODEL=${OUTPUT}/${FP32_MODEL}
 
     # to generate the logging graph
-    TRANSFORMS1='mkl_fuse_pad_and_conv'
+    TRANSFORMS1='insert_logging(op=RequantizationRange, show_name=true, message=“__requant_min_max:“)'
 
     # to freeze the dynamic range graph
-    TRANSFORMS2='freeze_requantization_ranges(min_max_log_file="/workspace/tests/calibration_data/resnet101_min_max_log.txt")'
+    TRANSFORMS2='freeze_requantization_ranges(min_max_log_file="/workspace/mounted_dir/output/resnet101_min_max_log.txt")'
 
     # to get the fused and optimized final int8 graph
     TRANSFORMS3='fuse_quantized_conv_and_requantize strip_unused_nodes'
@@ -318,7 +332,7 @@ function resnet50(){
     TRANSFORMS1='insert_logging(op=RequantizationRange, show_name=true, message="__requant_min_max:")'
 
     # to freeze the dynamic range graph
-    TRANSFORMS2='freeze_requantization_ranges(min_max_log_file="/workspace/tests/calibration_data/resnet50_min_max_log.txt")'
+    TRANSFORMS2='freeze_requantization_ranges(min_max_log_file="/workspace/mounted_dir/output/resnet50_min_max_log.txt")'
 
     # to get the fused and optimized final int8 graph
     TRANSFORMS3='fuse_quantized_conv_and_requantize strip_unused_nodes'
@@ -357,7 +371,7 @@ function ssd_mobilenet(){
     TRANSFORMS1='insert_logging(op=RequantizationRange, show_name=true, message="__requant_min_max:")'
 
     # to freeze the dynamic range graph
-    TRANSFORMS2='freeze_requantization_ranges(min_max_log_file="/workspace/tests/calibration_data/ssd_mobilenet_min_max_log.txt")'
+    TRANSFORMS2='freeze_requantization_ranges(min_max_log_file="/workspace/mounted_dir/output/ssd_mobilenet_min_max_log.txt")'
 
     # to get the fused and optimized final int8 graph
     TRANSFORMS3='fuse_quantized_conv_and_requantize strip_unused_nodes'
@@ -379,7 +393,7 @@ function ssd_vgg16(){
     TRANSFORMS1='insert_logging(op=RequantizationRange, show_name=true, message="__requant_min_max:")'
 
     # to freeze the dynamic range graph
-    TRANSFORMS2='freeze_requantization_ranges(min_max_log_file="/workspace/tests/calibration_data/ssdvgg16_min_max_log.txt")'
+    TRANSFORMS2='freeze_requantization_ranges(min_max_log_file="/workspace/mounted_dir/output/ssd_vgg16_min_max_log.txt")'
 
     # to get the fused and optimized final int8 graph
     TRANSFORMS3='fuse_quantized_conv_and_requantize strip_unused_nodes'
@@ -387,9 +401,206 @@ function ssd_vgg16(){
     run_quantize_model_test
 }
 
+######### Model Calibration #######
+
+function get_cocoapi() {
+  # get arg for where the cocoapi repo was cloned
+  cocoapi_dir=${1}
+
+  # get arg for the location where we want the pycocotools
+  parent_dir=${2}
+  pycocotools_dir=${parent_dir}/pycocotools
+
+  # If pycoco tools aren't already found, then builds the coco python API
+  if [ ! -d ${pycocotools_dir} ]; then
+    # This requires that the cocoapi is cloned in the external model source dir
+    if [ -d "${cocoapi_dir}/PythonAPI" ]; then
+      # install cocoapi
+      pushd ${cocoapi_dir}/PythonAPI
+      echo "Installing COCO API"
+      make
+      cp -r pycocotools ${parent_dir}
+      popd
+    else
+      echo "${cocoapi_dir}/PythonAPI directory was not found"
+      echo "Unable to install the python cocoapi."
+      exit 1
+    fi
+  else
+    echo "pycocotools were found at: ${pycocotools_dir}"
+  fi
+}
+
+function install_protoc() {
+  pushd "${TENSORFLOW_MODELS}/models/research"
+
+  # install protoc, if necessary, then compile protoc files
+  if [ ! -f "bin/protoc" ]; then
+    install_location=$1
+    echo "protoc not found, installing protoc from ${install_location}"
+    apt-get -y install wget
+    wget -O protobuf.zip ${install_location}
+    unzip -o protobuf.zip
+    rm protobuf.zip
+  else
+    echo "protoc already found"
+  fi
+
+  echo "Compiling protoc files"
+  ./bin/protoc object_detection/protos/*.proto --python_out=.
+  popd
+}
+
+# run inference using the logged graph to generate the min_max ranges file.
+function generate_min_max_ranges(){
+    INTEL_MODELS=${OUTPUT}/models
+
+    if [ ! -d ${INTEL_MODELS} ]; then
+        echo "Intel Models directory cannot be found in ${INTEL_MODELS}."
+        exit 1
+    fi
+    cd ${INTEL_MODELS}/benchmarks
+
+    ## install common dependencies
+    apt update
+    apt full-upgrade -y
+    apt-get install python-tk numactl -y
+    apt install -y libsm6 libxext6
+    pip install requests
+
+    if [ ${model} == "ssd_vgg16" ]; then
+        get_cocoapi ${SSD_TENSORFLOW}/coco ${INTEL_MODELS}/models/object_detection/tensorflow/ssd_vgg16/inference/
+    fi
+
+    if [ ${model} == "faster_rcnn" ] || [ ${model} == "rfcn" ] || [ ${model} == "ssd_mobilenet" ]; then
+        # install dependencies
+        pip install -r "${INTEL_MODELS}/benchmarks/object_detection/tensorflow/faster_rcnn/requirements.txt"
+
+        cd "${TENSORFLOW_MODELS}/models/research"
+        # install protoc v3.3.0, if necessary, then compile protoc files
+        install_protoc "https://github.com/google/protobuf/releases/download/v3.3.0/protoc-3.3.0-linux-x86_64.zip"
+
+        # install cocoapi
+        get_cocoapi ${TENSORFLOW_MODELS}/models/cocoapi ${TENSORFLOW_MODELS}/models/research/
+
+        if [ ${model} == "faster_rcnn" ]; then
+            chmod +x ${INTEL_MODELS}/models/object_detection/tensorflow/faster_rcnn/inference/int8/coco_int8.sh
+        elif [ ${model} == "ssd_mobilenet" ]; then
+            chmod +x ${INTEL_MODELS}/models/object_detection/tensorflow/ssd-mobilenet/inference/int8/coco_int8.sh
+        else
+            chmod +x ${INTEL_MODELS}/models/object_detection/tensorflow/rfcn/inference/int8/coco_mAP.sh
+        fi
+    fi
+
+    # run inference
+    if [ ${model} == "resnet50" ]; then
+        cd ${INTEL_MODELS}/benchmarks
+        python launch_benchmark.py \
+        --mode inference \
+        --model-name ${model} \
+        --precision int8 \
+        --framework tensorflow \
+        --in-graph ${FP32_MODEL} \
+        --accuracy-only ${CALIBRATE_ARGS}
+
+        mkdir dataset && mv calibration-1-of-1 dataset
+    fi
+
+    cd ${INTEL_MODELS}/benchmarks
+    timeout 100s python launch_benchmark.py \
+    --mode inference \
+    --precision int8 \
+    --framework tensorflow \
+    --in-graph ${OUTPUT}/${model}_int8_logged_graph.pb \
+    --accuracy-only ${MODEL_ARG} >& ${OUTPUT}/${model}_min_max_log.txt || continue
+}
+
+function calibrate_image_recognition_common() {
+    # for models: inceptionv3, inceptionv4, inception_resnet_v2, and resnet101
+    MODEL_ARG="--batch-size 100 --data-location ${DATASET}/imagenet-data --model-name ${model}"
+    generate_min_max_ranges
+}
+
+function calibrate_object_detection_common(){
+    TENSORFLOW_MODELS=${OUTPUT}/tensorflow_models
+
+    if [ -d ${TENSORFLOW_MODELS} ]; then
+        rm -rf ${TENSORFLOW_MODELS}
+    fi
+    cd ${OUTPUT}
+    mkdir tensorflow_models && cd tensorflow_models
+    git clone https://github.com/tensorflow/models.git
+    cd ${TENSORFLOW_MODELS}/models
+    git clone https://github.com/cocodataset/cocoapi.git
+
+    cd research/object_detection
+    chmod 777 metrics
+    cd "metrics"
+    chmod 777 offline_eval_map_corloc.py
+    sed -i.bak 162s/eval_input_config/eval_input_configs/ offline_eval_map_corloc.py
+    sed -i.bak 91s/input_config/input_config[0]/ offline_eval_map_corloc.py
+    sed -i.bak 92s/input_config/input_config[0]/ offline_eval_map_corloc.py
+    sed -i.bak 95s/input_config/input_config[0]/ offline_eval_map_corloc.py
+
+    cp ${DATASET}/coco-data/coco_train.record ${DATASET}/coco-data/coco_val.record
+
+    if [ ${model} == "faster_rcnn" ]; then
+        MODEL_ARG="--model-source-dir ${TENSORFLOW_MODELS}/models --data-location ${DATASET}/coco-data/coco_val.record --model-name ${model}"
+    elif [ ${model} == "rfcn" ]; then
+        MODEL_ARG="--model-source-dir ${TENSORFLOW_MODELS}/models --data-location ${DATASET}/coco-data/coco_val.record --model-name ${model} -- split="accuracy_message""
+    fi
+    generate_min_max_ranges
+}
+
+function calibrate_resnet50() {
+    CALIBRATE_ARGS="--batch-size 100 --data-location ${DATASET}/imagenet-data --model-name ${model} -- calibration_only=True"
+
+    MODEL_ARG="--batch-size 100 --data-location ${OUTPUT}/models/benchmarks/dataset --model-name ${model} -- calibrate=True"
+    generate_min_max_ranges
+}
+
+function calibrate_ssd_mobilenet() {
+    TENSORFLOW_MODELS=${OUTPUT}/tensorflow_models
+
+    if [ -d ${TENSORFLOW_MODELS} ]; then
+        rm -rf ${TENSORFLOW_MODELS}
+    fi
+    cd ${OUTPUT}
+    mkdir tensorflow_models && cd tensorflow_models
+    git clone https://github.com/tensorflow/models.git
+    
+    cd ${TENSORFLOW_MODELS}/models
+    git checkout 20da786b078c85af57a4c88904f7889139739ab0
+    git clone https://github.com/cocodataset/cocoapi.git
+
+    chmod -R 777 ${TENSORFLOW_MODELS}/models/research/object_detection/inference/detection_inference.py
+    sed -i.bak "s/'r'/'rb'/g" ${TENSORFLOW_MODELS}/models/research/object_detection/inference/detection_inference.py
+
+    MODEL_ARG="--batch-size 1 --model-source-dir ${TENSORFLOW_MODELS}/models --data-location ${DATASET}/coco-data/coco_train.record --model-name ssd-mobilenet"
+    generate_min_max_ranges
+}
+
+function calibrate_ssd_vgg16() {
+    SSD_TENSORFLOW=${OUTPUT}/SSD.TensorFlow
+    if [ ! -d ${SSD_TENSORFLOW} ]; then
+        cd ${OUTPUT}
+        git clone https://github.com/HiKapok/SSD.TensorFlow.git
+        cd SSD.TensorFlow
+        git checkout 2d8b0cb9b2e70281bf9dce438ff17ffa5e59075c
+        git clone https://github.com/waleedka/coco.git
+    fi
+
+    # install dependencies
+    pip install opencv-python Cython
+
+    MODEL_ARG="--batch-size 1 --model-source-dir ${OUTPUT}/SSD.TensorFlow --data-location ${DATASET}/coco-data-ssdvgg16 --model-name ${model}"
+    generate_min_max_ranges
+}
+########################
+
 # Run all models, when new model is added append model name in alphabetical order below
 
-for model in faster_rcnn inceptionv3 inceptionv4 inception_resnet_v2 rfcn resnet101 resnet50 ssd_mobilenet ssd_vgg16
+for model in faster_rcnn inceptionv3 inceptionv4 inception_resnet_v2 rfcn resnet50 ssd_vgg16 ssd_mobilenet
 do
     echo ""
     echo "Running Quantization Test for model: ${model}"

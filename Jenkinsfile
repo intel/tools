@@ -9,7 +9,7 @@ node() {
             checkout scm
             withCredentials([string(credentialsId: 'intel-models-repo', variable: 'INTEL_MODELS_REPO')]) {
                 checkout([$class                           : 'GitSCM',
-                    branches                         : [[name: 'develop']],
+                    branches                         : [[name: 'r1.4']],
                     browser                          : [$class: 'AssemblaWeb', repoUrl: ''],
                     doGenerateSubmoduleConfigurations: false,
                     extensions                       : [[$class           : 'RelativeTargetDirectory',

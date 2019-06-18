@@ -299,7 +299,7 @@ function rfcn(){
 }
 
 function resnet101(){
-    OUTPUT_NODES='resnet_v1_101/SpatialSqueeze'
+    OUTPUT_NODES='resnet_v1_101/predictions/Reshape_1'
 
     # Download the FP32 pre-trained model
     cd ${OUTPUT}
@@ -308,7 +308,7 @@ function resnet101(){
     FP32_MODEL=${OUTPUT}/${FP32_MODEL}
 
     # to generate the logging graph
-    TRANSFORMS1='insert_logging(op=RequantizationRange, show_name=true, message=“__requant_min_max:“)'
+    TRANSFORMS1='insert_logging(op=RequantizationRange, show_name=true, message="__requant_min_max:")'
 
     # to freeze the dynamic range graph
     TRANSFORMS2='freeze_requantization_ranges(min_max_log_file="/workspace/mounted_dir/output/resnet101_min_max_log.txt")'
@@ -518,6 +518,9 @@ function generate_min_max_ranges(){
 function calibrate_image_recognition_common() {
     # for models: inceptionv3, inceptionv4, inception_resnet_v2, and resnet101
     MODEL_ARG="--batch-size 100 --data-location ${DATASET}/imagenet-data --model-name ${model}"
+    if [ ${model} == "inceptionv3" ] || [ ${model} == "resnet101" ]; then
+        MODEL_ARG="${MODEL_ARG} -- calibration_only=True"
+    fi
     generate_min_max_ranges
 }
 
@@ -600,7 +603,7 @@ function calibrate_ssd_vgg16() {
 
 # Run all models, when new model is added append model name in alphabetical order below
 
-for model in faster_rcnn inceptionv3 inceptionv4 inception_resnet_v2 rfcn resnet50 ssd_vgg16 ssd_mobilenet
+for model in faster_rcnn inceptionv3 inceptionv4 inception_resnet_v2 rfcn resnet101 resnet50 ssd_vgg16 ssd_mobilenet
 do
     echo ""
     echo "Running Quantization Test for model: ${model}"

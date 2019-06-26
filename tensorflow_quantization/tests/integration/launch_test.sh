@@ -27,7 +27,7 @@ TF_REPO=$(pwd)
 MOUNTED_DIR=${TF_REPO}/mounted_dir
 OUTPUT=${MOUNTED_DIR}/output
 DATASET=${MOUNTED_DIR}/dataset
-INTEL_MODELS=${INTEL_MODELS:-${MOUNTED_DIR}/models}
+INTEL_MODELS=${INTEL_MODELS:-${OUTPUT}/models}
 LOGS=${OUTPUT}/test_logs.txt
 
 if [ ! -d ${MOUNTED_DIR} ]; then
@@ -67,7 +67,7 @@ else
 fi
 
 if [ ! -d ${INTEL_MODELS} ]; then
-    cd ${MOUNTED_DIR}
+    cd ${OUTPUT}
     git clone https://github.com/IntelAI/models.git
 else
     cp -r ${INTEL_MODELS} ${OUTPUT}

@@ -264,7 +264,7 @@ function rfcn(){
 
     # Download the FP32 pre-trained model
     cd ${OUTPUT}
-    FP32_MODEL_DIR="rfcn_resnet101_fp32_coco"
+    FP32_MODEL_DIR="rfcn_resnet101_coco_2018_01_28"
     FP32_MODEL_TAR="rfcn_resnet101_fp32_coco_pretrained_model.tar.gz"
     wget -q ${INTEL_MODELS_BUCKET}/${FP32_MODEL_TAR}
     tar -xzvf ${FP32_MODEL_TAR}

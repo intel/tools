@@ -340,6 +340,42 @@ function resnet50(){
     run_quantize_model_test
 }
 
+function resnet50v1_5(){
+    OUTPUT_NODES='ArgMax,softmax_tensor'
+
+    # Download and optimize the FP32 pre-trained model
+    cd ${OUTPUT}
+    wget -q https://zenodo.org/record/2535873/files/resnet50_v1.pb
+    FP32_MODEL="resnet50_v1.pb"
+    FP32_MODEL=${OUTPUT}/${FP32_MODEL}
+
+    cd ${TF_WORKSPACE}
+
+    # optimize fp32 frozen graph
+    bazel-bin/tensorflow/tools/graph_transforms/transform_graph \
+    --in_graph=${FP32_MODEL} \
+    --out_graph=${OUTPUT}/${model}_optimized_fp32_graph.pb \
+    --inputs='input_tensor' \
+    --outputs=${OUTPUT_NODES} \
+    --transforms='strip_unused_nodes remove_nodes(op=Identity, op=CheckNumerics) fold_batch_norms fold_old_batch_norms'
+
+    rm ${FP32_MODEL}
+    FP32_MODEL=${OUTPUT}/${model}_optimized_fp32_graph.pb
+
+    EXTRA_ARG="--per_channel=True"
+
+    # to generate the logging graph
+    TRANSFORMS1='insert_logging(op=RequantizationRange, show_name=true, message="__requant_min_max:")'
+
+    # to freeze the dynamic range graph
+    TRANSFORMS2='freeze_requantization_ranges(min_max_log_file="/workspace/mounted_dir/output/resnet50v1_5_min_max_log.txt")'
+
+    # to get the fused and optimized final int8 graph
+    TRANSFORMS3='fuse_quantized_conv_and_requantize strip_unused_nodes'
+
+    run_quantize_model_test
+}
+
 function ssd_mobilenet(){
     OUTPUT_NODES='detection_boxes,detection_scores,num_detections,detection_classes'
 
@@ -562,6 +598,11 @@ function calibrate_resnet50() {
     generate_min_max_ranges
 }
 
+function calibrate_resnet50v1_5() {
+    MODEL_ARG="--batch-size 1 --data-location ${DATASET}/imagenet-data --model-name ${model} --warmup_steps=100"
+    generate_min_max_ranges
+}
+
 function calibrate_ssd_mobilenet() {
     TENSORFLOW_MODELS=${OUTPUT}/tensorflow_models
 
@@ -603,7 +644,7 @@ function calibrate_ssd_vgg16() {
 
 # Run all models, when new model is added append model name in alphabetical order below
 
-for model in faster_rcnn inceptionv3 inceptionv4 inception_resnet_v2 rfcn resnet101 resnet50 ssd_vgg16 ssd_mobilenet
+for model in faster_rcnn inceptionv3 inceptionv4 inception_resnet_v2 rfcn resnet101 resnet50 resnet50v1_5 ssd_vgg16 ssd_mobilenet
 do
     echo ""
     echo "Running Quantization Test for model: ${model}"

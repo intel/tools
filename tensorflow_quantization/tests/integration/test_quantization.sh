@@ -415,6 +415,27 @@ function ssd_mobilenet(){
     run_quantize_model_test
 }
 
+function ssd_resnet34() {
+    OUTPUT_NODES='v/stack,v/Softmax'
+
+    # Download the FP32 pre-trained model
+    cd ${OUTPUT}
+    FP32_MODEL="ssd_resnet34_fp32_bs1_pretrained_model.pb"
+    wget -q ${INTEL_MODELS_BUCKET}/${FP32_MODEL}
+    FP32_MODEL=${OUTPUT}/${FP32_MODEL}
+
+    # to generate the logging graph
+    TRANSFORMS1='insert_logging(op=RequantizationRange, show_name=true, message="__requant_min_max:")'
+
+    # to freeze the dynamic range graph
+    TRANSFORMS2='freeze_requantization_ranges(min_max_log_file="/workspace/mounted_dir/output/ssd_resnet34_min_max_log.txt")'
+
+    # to get the fused and optimized final int8 graph
+    TRANSFORMS3='fuse_quantized_conv_and_requantize strip_unused_nodes'
+
+    run_quantize_model_test
+}
+
 function ssd_vgg16(){
     OUTPUT_NODES='ExpandDims,ExpandDims_1,ExpandDims_2,ExpandDims_3,ExpandDims_4,ExpandDims_5,ExpandDims_6,ExpandDims_7,ExpandDims_8,ExpandDims_9,ExpandDims_10,ExpandDims_11,ExpandDims_12,ExpandDims_13,ExpandDims_14,ExpandDims_15,ExpandDims_16,ExpandDims_17,ExpandDims_18,ExpandDims_19,ExpandDims_20,ExpandDims_21,ExpandDims_22,ExpandDims_23,ExpandDims_24,ExpandDims_25,ExpandDims_26,ExpandDims_27,ExpandDims_28,ExpandDims_29,ExpandDims_30,ExpandDims_31,ExpandDims_32,ExpandDims_33,ExpandDims_34,ExpandDims_35,ExpandDims_36,ExpandDims_37,ExpandDims_38,ExpandDims_39,ExpandDims_40,ExpandDims_41,ExpandDims_42,ExpandDims_43,ExpandDims_44,ExpandDims_45,ExpandDims_46,ExpandDims_47,ExpandDims_48,ExpandDims_49,ExpandDims_50,ExpandDims_51,ExpandDims_52,ExpandDims_53,ExpandDims_54,ExpandDims_55,ExpandDims_56,ExpandDims_57,ExpandDims_58,ExpandDims_59,ExpandDims_60,ExpandDims_61,ExpandDims_62,ExpandDims_63,ExpandDims_64,ExpandDims_65,ExpandDims_66,ExpandDims_67,ExpandDims_68,ExpandDims_69,ExpandDims_70,ExpandDims_71,ExpandDims_72,ExpandDims_73,ExpandDims_74,ExpandDims_75,ExpandDims_76,ExpandDims_77,ExpandDims_78,ExpandDims_79,ExpandDims_80,ExpandDims_81,ExpandDims_82,ExpandDims_83,ExpandDims_84,ExpandDims_85,ExpandDims_86,ExpandDims_87,ExpandDims_88,ExpandDims_89,ExpandDims_90,ExpandDims_91,ExpandDims_92,ExpandDims_93,ExpandDims_94,ExpandDims_95,ExpandDims_96,ExpandDims_97,ExpandDims_98,ExpandDims_99,ExpandDims_100,ExpandDims_101,ExpandDims_102,ExpandDims_103,ExpandDims_104,ExpandDims_105,ExpandDims_106,ExpandDims_107,ExpandDims_108,ExpandDims_109,ExpandDims_110,ExpandDims_111,ExpandDims_112,ExpandDims_113,ExpandDims_114,ExpandDims_115,ExpandDims_116,ExpandDims_117,ExpandDims_118,ExpandDims_119,ExpandDims_120,ExpandDims_121,ExpandDims_122,ExpandDims_123,ExpandDims_124,ExpandDims_125,ExpandDims_126,ExpandDims_127,ExpandDims_128,ExpandDims_129,ExpandDims_130,ExpandDims_131,ExpandDims_132,ExpandDims_133,ExpandDims_134,ExpandDims_135,ExpandDims_136,ExpandDims_137,ExpandDims_138,ExpandDims_139,ExpandDims_140,ExpandDims_141,ExpandDims_142,ExpandDims_143,ExpandDims_144,ExpandDims_145,ExpandDims_146,ExpandDims_147,ExpandDims_148,ExpandDims_149,ExpandDims_150,ExpandDims_151,ExpandDims_152,ExpandDims_153,ExpandDims_154,ExpandDims_155,ExpandDims_156,ExpandDims_157,ExpandDims_158,ExpandDims_159'
 
@@ -528,6 +549,20 @@ function generate_min_max_ranges(){
         fi
     fi
 
+    if [ ${model} == "ssd_resnet34" ]; then
+        for line in $(cat ${INTEL_MODELS}/benchmarks/object_detection/tensorflow/ssd-resnet34/requirements.txt)
+        do
+          pip install $line
+        done
+        apt install -y git-all
+        old_dir=${PWD}
+        cd /tmp
+        git clone --single-branch https://github.com/tensorflow/benchmarks.git
+        cd benchmarks
+        git checkout 1e7d788042dfc6d5e5cd87410c57d5eccee5c664
+        cd ${old_dir}
+    fi
+
     # run inference
     if [ ${model} == "resnet50" ]; then
         cd ${INTEL_MODELS}/benchmarks
@@ -581,12 +616,12 @@ function calibrate_object_detection_common(){
     sed -i.bak 92s/input_config/input_config[0]/ offline_eval_map_corloc.py
     sed -i.bak 95s/input_config/input_config[0]/ offline_eval_map_corloc.py
 
-    cp ${DATASET}/coco-data/coco_train.record ${DATASET}/coco-data/coco_val.record
+    cp ${DATASET}/coco-data/coco_train.record ${DATASET}/coco_val.record
 
     if [ ${model} == "faster_rcnn" ]; then
-        MODEL_ARG="--model-source-dir ${TENSORFLOW_MODELS}/models --data-location ${DATASET}/coco-data/coco_val.record --model-name ${model}"
+        MODEL_ARG="--model-source-dir ${TENSORFLOW_MODELS}/models --data-location ${DATASET}/coco_val.record --model-name ${model}"
     elif [ ${model} == "rfcn" ]; then
-        MODEL_ARG="--model-source-dir ${TENSORFLOW_MODELS}/models --data-location ${DATASET}/coco-data/coco_val.record --model-name ${model} -- split="accuracy_message""
+        MODEL_ARG="--model-source-dir ${TENSORFLOW_MODELS}/models --data-location ${DATASET}/coco_val.record --model-name ${model} -- split="accuracy_message""
     fi
     generate_min_max_ranges
 }
@@ -624,6 +659,25 @@ function calibrate_ssd_mobilenet() {
     generate_min_max_ranges
 }
 
+function calibrate_ssd_resnet34() {
+    TENSORFLOW_MODELS=${OUTPUT}/tensorflow_models
+
+    if [ -d ${TENSORFLOW_MODELS} ]; then
+        rm -rf ${TENSORFLOW_MODELS}
+    fi
+    cd ${OUTPUT}
+    mkdir tensorflow_models && cd tensorflow_models
+    git clone https://github.com/tensorflow/models.git
+
+    cd ${TENSORFLOW_MODELS}/models
+    git checkout f505cecde2d8ebf6fe15f40fb8bc350b2b1ed5dc
+    git clone https://github.com/cocodataset/cocoapi.git
+    cp ${DATASET}/coco-data/coco_val.record ${DATASET}/coco-data/validation-00000-of-00001
+
+    MODEL_ARG="--batch-size 1 --model-source-dir ${TENSORFLOW_MODELS}/models --data-location ${DATASET}/coco-data --model-name ssd-resnet34"
+    generate_min_max_ranges
+}
+
 function calibrate_ssd_vgg16() {
     SSD_TENSORFLOW=${OUTPUT}/SSD.TensorFlow
     if [ ! -d ${SSD_TENSORFLOW} ]; then
@@ -644,7 +698,7 @@ function calibrate_ssd_vgg16() {
 
 # Run all models, when new model is added append model name in alphabetical order below
 
-for model in faster_rcnn inceptionv3 inceptionv4 inception_resnet_v2 rfcn resnet101 resnet50 resnet50v1_5 ssd_vgg16 ssd_mobilenet
+for model in faster_rcnn inceptionv3 inceptionv4 inception_resnet_v2 rfcn resnet101 resnet50 resnet50v1_5 ssd_vgg16 ssd_mobilenet ssd_resnet34
 do
     echo ""
     echo "Running Quantization Test for model: ${model}"

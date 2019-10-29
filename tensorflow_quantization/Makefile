@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# SPDX-License-Identifier: EPL-2.0
-#
 
 # Set PY_VERSION to 2 or 3 to create different envs without using tox
 PY_VERSION ?= $(shell python --version 2>&1  | cut -c8)

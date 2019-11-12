@@ -54,8 +54,9 @@ We assume the imagenet dataset is on `~/quantization/api/models/imagenet` direct
 1. Download TensorFlow source, patch Graph Transform Tool and install the TensorFlow.
 ```
 $ cd ~/
-$ git clone -b r1.14 --single-branch https://github.com/tensorflow/tensorflow.git
+$ git clone https://github.com/tensorflow/tensorflow.git
 $ cd tensorflow
+$ git checkout v1.14.0
 $ cp ../quantization/tensorflow_quantization/graph_transforms/*  tensorflow/tools/graph_transforms/
 ```
 And then [build and install TensorFlow from Source with Intel® MKL](https://software.intel.com/en-us/articles/intel-optimization-for-tensorflow-installation-guide).

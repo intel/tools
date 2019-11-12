@@ -17,15 +17,16 @@
 
 FROM gcr.io/deeplearning-platform-release/tf-cpu.1-14 as binary_build
 
-# Using "TF_BUILD_VERSION=r1.15" if you need tensorflow 1.15.0
-ARG TF_BUILD_VERSION=r1.14
+# Using "TF_BUILD_VERSION=v1.15.0" if you need tensorflow 1.15.0
+ARG TF_BUILD_VERSION=v1.14.0
 ARG BAZEL_VERSION=0.24.1
 
 ENV WORKSPACE="/workspace"
 ENV TF_WORKSPACE="${WORKSPACE}/tensorflow"
 WORKDIR ${TF_WORKSPACE}
 
-RUN git clone -b ${TF_BUILD_VERSION} --single-branch https://github.com/tensorflow/tensorflow.git .
+RUN git clone https://github.com/tensorflow/tensorflow.git . && \
+    git checkout ${TF_BUILD_VERSION}
 
 # Update graph_transforms files with customizations
 COPY graph_transforms/* ${TF_WORKSPACE}/tensorflow/tools/graph_transforms/

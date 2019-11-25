@@ -108,6 +108,77 @@ Finally, verify the quantized model performance:
 
 
 
+## More verified models
+
+The following models are also verified:
+
+- [SSD-MobileNet](#ssd-mobilenet)
+- [SSD-ResNet34](#ssd-resnet34)
+
+
+
+### SSD-MobileNet
+
+Download and extract the pre-trained SSD-MobileNet model from the [TensorFlow detection model zoo](https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/detection_model_zoo.md#coco-trained-models). The downloaded .tar file includes a `frozen_inference_graph.pb` which will be used as the input graph for quantization.
+
+```bash
+$ wget http://download.tensorflow.org/models/object_detection/ssd_mobilenet_v1_coco_2018_01_28.tar.gz
+$ tar -xvf ssd_mobilenet_v1_coco_2018_01_28.tar.gz
+```
+
+
+
+Follow the [instructions](https://github.com/IntelAI/models/blob/master/benchmarks/object_detection/tensorflow/ssd-mobilenet/README.md#int8-inference-instructions) to prepare your local environment and build ssd_mobilenet_callback_cmds() command to generate the min. and max. ranges for the model calibration.
+
+```python
+_INPUTS = ['image_tensor']
+_OUTPUTS = ['detection_boxes', 'detection_scores', 'num_detections', 'detection_classes']
+
+
+def ssd_mobilenet_callback_cmds():
+    # This command is to execute the inference with small subset of the training dataset, and get the min and max log output.
+
+if __name__ == '__main__':
+    c = convert.GraphConverter('path/to/ssd_mobilenet_v1_coco_2018_01_28/frozen_inference_graph.pb', None, _INPUTS, _OUTPUTS, excluded_ops=['ConcatV2'], per_channel=True)
+    c.gen_calib_data_cmds = ssd_mobilenet_callback_cmds()
+    c.convert()
+```
+
+
+
+
+
+### SSD-ResNet34
+
+Download the pretrained model:
+
+```bash
+$ wget https://storage.googleapis.com/intel-optimized-tensorflow/models/ssd_resnet34_fp32_bs1_pretrained_model.pb
+```
+
+
+
+Follow the [instructions](https://github.com/IntelAI/models/blob/master/benchmarks/object_detection/tensorflow/ssd-resnet34/README.md#int8-inference-instructions) to prepare your int8 accuracy commands to generate the min. and max. ranges for the model calibration.
+
+```python
+_INPUTS = ['input']
+_OUTPUTS = ['v/stack', 'v/Softmax']
+
+
+def ssd_resnet34_callback_cmds():
+    # This command is to execute the inference with small subset of the training dataset, and get the min and max log output.
+
+
+if __name__ == '__main__':
+    c = convert.GraphConverter('path/to/ssd_resnet34_fp32_bs1_pretrained_model.pb', None, _INPUTS, _OUTPUTS, excluded_ops=['ConcatV2'])
+    c.gen_calib_data_cmds = ssd_resnet34_callback_cmds()
+    c.convert()
+```
+
+
+
+
+
 ## Docker support
 
 * For docker environment, the procedure is same as above. 

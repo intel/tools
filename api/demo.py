@@ -17,48 +17,52 @@
 #
 
 import os
+import argparse
+
+from tensorflow.python.platform import app
+
 import graph_converter as converter
 
-_RN50_MODEL = os.path.join(os.environ['HOME'], 'quantization/api/models/resnet50/resnet50_fp32_pretrained_model.pb')
-_RN50V1_5_MODEL = os.path.join(os.environ['HOME'], 'quantization/api/models/resnet50v1_5/resnet50_v1.pb')
-_RN50V1_5_OUT_GRAPH = os.path.join(os.environ['HOME'], 'quantization/api/models/resnet50v1_5/int8_graph.pb')
-_DATA_LOC = os.path.join(os.environ['HOME'], 'quantization/api/models/imagenet')
 
-
-def rn50_callback_cmds():
+def rn50_callback_cmds(data_location):
     script = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'models/resnet50/accuracy.py')
-    # You can set up larger batch_size and num_batches to get better accuracy, more time is needed accordingly.
-    # Leave `--input_graph={}` unformatted.
+    # Set bigger value of batch_size and num_batches to get better accuracy, but more time is required.
+    # Leave `--input_graph={}` unformatted for automatic fill in graph_coverter. 
     flags = ' --batch_size=50' + \
-            ' --num_inter_threads=2' + \
-            ' --num_intra_threads=28' + \
             ' --input_graph={}' + \
-            ' --data_location={}'.format(_DATA_LOC) + \
+            ' --data_location={}'.format(data_location) + \
             ' --num_batches 10'
-    return script + flags
+    return 'python ' + script + flags
 
 
-def rn50v1_5_callback_cmds():
+def rn50v1_5_callback_cmds(data_location):
     script = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                           'models/resnet50v1_5/eval_image_classifier_inference.py')
     flags = " --batch-size=50" + \
-            " --num-inter-threads=2" + \
-            " --num-intra-threads=28" + \
             " --input-graph={}" + \
-            " --data-location={}".format(_DATA_LOC) + \
+            " --data-location={}".format(data_location) + \
             " --steps=10"
-    return script + flags
+    return 'python ' + script + flags
+
+
+def main(_):
+    c = None
+    if args.model == 'resnet50':
+        c = converter.GraphConverter(args.model_location, None, ['input'], ['predict'])
+        # This command is to execute the inference with small subset of the training dataset, and get the min and max log output.
+        c.gen_calib_data_cmds = rn50_callback_cmds(args.data_location)
+    elif args.model == 'resnet50_v1':
+        c = converter.GraphConverter(args.model_location, None, ['input_tensor'], ['ArgMax', 'softmax_tensor'],
+                                     per_channel=True)
+        c.gen_calib_data_cmds = rn50v1_5_callback_cmds(args.data_location)
+    c.convert()
 
 
 if __name__ == '__main__':
-    # ResNet50 v1.0 quantization example.
-    rn50 = converter.GraphConverter(_RN50_MODEL, None, ['input'], ['predict'])
-    # pass an inference script to `gen_calib_data_cmds` to generate calibration data.
-    rn50.gen_calib_data_cmds = rn50_callback_cmds()
-    rn50.convert()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--model', type=str, default='resnet50', help='The model name')
+    parser.add_argument('--model_location', type=str, default=None, help='The original fp32 frozen graph')
+    parser.add_argument('--data_location', type=str, default=None, help='The dataset in tfrecord format')
+    args = parser.parse_args()
 
-    # ResNet50 v1.5 quantization example with weight quantization channel-wise.
-    rn50v1_5 = converter.GraphConverter(_RN50V1_5_MODEL, _RN50V1_5_OUT_GRAPH,
-                                        ['input_tensor'], ['ArgMax', 'softmax_tensor'], True)
-    rn50v1_5.gen_calib_data_cmds = rn50v1_5_callback_cmds()
-    rn50v1_5.convert()
+    app.run()

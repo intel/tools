@@ -18,7 +18,6 @@
 
 import tensorflow as tf
 from tensorflow.core.framework import graph_pb2
-from tensorflow.python.framework import dtypes
 from tensorflow.python.framework import importer
 from tensorflow.python.framework import ops
 from tensorflow.python.platform import gfile
@@ -35,13 +34,15 @@ logging.getLogger().setLevel(level=logging.INFO)
 
 
 class GraphConverter:
-    def __init__(self, input_graph, output_graph, inputs=[], outputs=[], per_channel=False, input_graph_is_binary=True):
+    def __init__(self, input_graph, output_graph, inputs=[], outputs=[], excluded_ops=[], excluded_nodes=[], per_channel=False, input_graph_is_binary=True):
         """Convert graph.
 
         :param input_graph: input graph pb file.
         :param output_graph: output graph pb file. If set, output directory should be exist.
         :param inputs: input nodes' names.
         :param outputs: output nodes' names.
+        :param excluded_ops: list of operations to be excluded from quantization
+        :param excluded_nodes: list of nodes to be excluded from quantization
         :param per_channel: if set True, enables weight quantization channel-wise.
         """
         self.input_graph = input_graph
@@ -51,6 +52,8 @@ class GraphConverter:
         self.outputs = outputs
         self.per_channel = per_channel
         self.gen_calib_data_cmds = None
+        self.excluded_ops = excluded_ops
+        self.excluded_nodes = excluded_nodes
         self._low_precision_mode = 'eightbit'
         self._output_path = os.path.dirname(os.path.realpath(self.output_graph
                                                              if self.output_graph else self.input_graph))
@@ -91,10 +94,18 @@ class GraphConverter:
     def _optimize_frozen_fp32_graph(self):
         """Optimize fp32 frozen graph."""
 
-        self._fp32_optimized_graph = optimize_for_inference(self._read_graph(self.input_graph,
-                                                                             self.input_graph_binary_flag),
-                                                            self.inputs, self.outputs,
-                                                            dtypes.float32.as_datatype_enum, False)
+        in_graph_def = self._read_graph(self.input_graph, self.input_graph_binary_flag)
+        # TODO: keep dtypes list order as input list?
+        dtypes = []
+        for n in in_graph_def.node:
+            if n.name in self.inputs:
+                dtypes.append(n.attr["dtype"].type)
+        self._fp32_optimized_graph = optimize_for_inference(in_graph_def, self.inputs, self.outputs, dtypes, False)
+
+        # transforms = ['strip_unused_nodes', 'remove_nodes(op=Identity, op=CheckNumerics)',
+        #               'fold_constants(ignore_errors=true)', 'fold_batch_norms', 'fold_old_batch_norms']
+        # self._fp32_optimized_graph = self._transform_graph(
+        #     self._read_graph(self.input_graph, self.input_graph_binary_flag), None, transforms)
 
     def _quantize_graph(self):
         """quantize graph."""
@@ -107,6 +118,8 @@ class GraphConverter:
                                  mode=self._low_precision_mode,
                                  quantized_input_range=None,
                                  intel_cpu_eightbitize=True,
+                                 excluded_ops=self.excluded_ops,
+                                 excluded_nodes=self.excluded_nodes,
                                  per_channel=self.per_channel)
         self._int8_dynamic_range_graph = rewriter.rewrite(self.outputs)
 
@@ -136,7 +149,7 @@ class GraphConverter:
         self._transform_graph(self._int8_dynamic_range_graph, self._int8_logged_graph, transforms)
 
     def _generate_calibration_data(self):
-        cmd = 'python ' + self.gen_calib_data_cmds
+        cmd = self.gen_calib_data_cmds
         cmd = cmd.format(self._int8_logged_graph)
         cmd += ' 2>&1 | tee {}'.format(self._requant_min_max_log)
         os.system(cmd)

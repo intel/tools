@@ -1,3 +1,21 @@
+#
+#  -*- coding: utf-8 -*-
+#
+#  Copyright (c) 2019 Intel Corporation
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#
+
 # Copyright 2019 The TensorFlow Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -389,7 +407,7 @@ def intel_cpu_quantize_weight_eightbit(parent, input_node,
     max_name = base_name + "max"
     float_tensor = tensor_util.MakeNdarray(input_node.attr["value"].tensor)
     epsilon = 1e-4  # Needs to be set empirically if accuracy is not satisfactory
-    if parent == "Conv2D":
+    if parent in ("Conv2D", "MatMul"):
         if per_channel:
             # get the max values based on dim 0, 1, 2 for regular conv
             # since, output channel is dim 3
@@ -450,33 +468,6 @@ def intel_cpu_quantize_weight_eightbit(parent, input_node,
         qint8_tensor = (float_tensor.reshape(a, b, c * d) * 127.0 / ranges).astype(np.int8)
         # get the shape back to 4 dim
         qint8_tensor = qint8_tensor.reshape(a, b, c, d)
-    elif parent == "MatMul":
-       min_value = np.min(float_tensor.flatten())
-       max_value = np.max(float_tensor.flatten())
-       # Same processing of min-max as in quantize_weight_eightbit
-       # function.
-       if min_value > 0.0:
-          min_value = 0.0
-       if min_value == max_value:
-           if abs(min_value) < 0.000001:
-               max_value = min_value + 1.0
-           elif min_value > 0:
-               max_value = 2 * min_value
-           else:
-               max_value = min_value / 2.0
-
-       sess = session.Session()
-       with sess.as_default():
-           quantize_op = array_ops.quantize_v2(float_tensor,
-                                           min_value,
-                                           max_value,
-                                           dtypes.qint8,
-                                           mode=quantization_mode,
-                                           round_mode="HALF_TO_EVEN")
-           qint8_tensor = quantize_op[0].eval()
-           # Updated min-max values should be passed to the next feeding node.
-           min_value = quantize_op[1].eval()
-           max_value = quantize_op[2].eval()
 
     shape = tensor_util.TensorShapeProtoToList(input_node.attr["value"]
                                                .tensor.tensor_shape)
@@ -539,6 +530,7 @@ class GraphRewriter(object):
         self.mode = mode
         self.intel_cpu_eightbitize = intel_cpu_eightbitize
         self.conv_count = 0  # TODO: refactor to remove this counte
+        self.pad_fuse_map = {}
         self.per_channel = per_channel
         self.final_node_renames = {}
         self.quantized_node_dict = {}
@@ -966,6 +958,8 @@ class GraphRewriter(object):
             dequantize_node_name = original_node.name
         copy_attr(quantized_conv_node, "strides", original_node.attr["strides"])
         copy_attr(quantized_conv_node, "padding", original_node.attr["padding"])
+        if original_node.op != "DepthwiseConv2dNative":
+            copy_attr(quantized_conv_node, "padding_list", original_node.attr["padding_list"])
         copy_attr(quantized_conv_node, "dilations", original_node.attr["dilations"])
         set_attr_dtype(quantized_conv_node, "Tinput", dtypes.quint8)
         set_attr_dtype(quantized_conv_node, "Tfilter", dtypes.qint8)
@@ -1079,7 +1073,7 @@ class GraphRewriter(object):
         else:
             first_input_node_name = node_name_from_input(current_node.input[0])
             input_node = self.nodes_map[first_input_node_name]
-            if input_node.op in ("ConcatV2", "MaxPool", "AvgPool", "Relu", "Relu6"):
+            if input_node.op in ("ConcatV2", "MaxPool", "AvgPool", "Relu", "Relu6", "Pad"):
                 return self.intel_cpu_find_relu_recursively(input_node)
             else:
                 return False
@@ -1123,6 +1117,12 @@ class GraphRewriter(object):
                 else:
                     should_quantize_conv = True
             self.conv_count = self.conv_count + 1
+            # Int8 Pad fusion
+            pad_node = self.nodes_map[current_node.input[0]]
+            if pad_node.op == "Pad":
+                self.pad_fuse_map[current_node.name] = True
+            else:
+                self.pad_fuse_map[current_node.name] = False
         if current_node.op == "ConcatV2" \
                 and (current_node.op not in self.excluded_ops) \
                 and (current_node.name not in self.excluded_nodes):
@@ -1152,6 +1152,11 @@ class GraphRewriter(object):
         # fusion later.
         if current_node.op in ("Conv2D", "DepthwiseConv2dNative") \
                 and should_quantize_conv and quantize_input:
+            if self.pad_fuse_map[current_node.name] and current_node.op != "DepthwiseConv2dNative":
+                paddings_tensor = tensor_util.MakeNdarray(
+                    self.nodes_map[self.nodes_map[current_node.input[0]].input[1]].attr["value"].tensor).flatten()
+                current_node.input[0] = self.nodes_map[current_node.input[0]].input[0]
+                set_attr_int_list(current_node, "padding_list", paddings_tensor)
             # Match pattern for fusion with bias and relu
             grand_parent, parent = self.state.output_node_stack[-2:]
             if parent[0].op in ("BiasAdd", "Add") and (grand_parent[0].op in ("Relu", "Relu6")):

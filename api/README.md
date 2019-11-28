@@ -65,7 +65,7 @@ And then [build and install TensorFlow from Source with Intel® MKL](https://sof
 
 2. Run demo script
 ```bash
-$ python api/demo.py \
+$ python api/quantize_model.py \
 --model=resnet50 \
 --model_location=path/to/resnet50_fp32_pretrained_model.pb \
 --data_location=path/to/imagenet

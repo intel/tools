@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# SPDX-License-Identifier: EPL-2.0
-#
 
 # Set PY_VERSION to 2 or 3 to create different envs without using tox
 PY_VERSION ?= $(shell python --version 2>&1  | cut -c8)
@@ -47,7 +45,6 @@ else
 # so we'll check if a `git diff` shows anything
 cpplint:
 	@echo "Running lint checks for c++ code. NOTE: Google check can't run on Mac."
-	
 	find . -name "*.cc" | xargs -n1 tests/cpplint.py
 	find . -name "*.cc" | xargs -I '{}' \
 		sh -c 'tests/clang-format -style=Google {} > {}-temp.cc; \
@@ -63,31 +60,31 @@ endif
 
 lint: cpplint
 	@echo "Running style check..."
-	tox -e py2-lint -e py3-lint
-	
+	@tox -e py2-lint -e py3-lint
+
 lint2: cpplint
 	@echo "Running style check..."
-	tox -e py2-lint
+	@tox -e py2-lint
 
 lint3: cpplint
 	@echo "Running style check..."
-	tox -e py3-lint
+	@tox -e py3-lint
 
 unit_test:
 	@echo "Running unit tests..."
-	tox -e py2-unit -e py3-unit
+	@tox -e py2-unit -e py3-unit
 
 unit_test2:
 	@echo "Running unit tests python 2..."
-	tox -e py2-unit
+	@tox -e py2-unit
 
 unit_test3:
 	@echo "Running unit tests python 3..."
-	tox -e py3-unit
+	@tox -e py3-unit
 
 integration_test:
 	@echo "Running integration tests..."
-	@cd tests && bash launch_test.sh
+	@cd tests/integration && bash launch_test.sh
 
 cpp_test:
 	@echo "SHOULD ONLY BE RAN WHERE TENSORFLOW CPP CODE IS COMPILED, IN TENSORFLOW WORKSPACE"

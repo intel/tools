@@ -23,29 +23,42 @@ This document describes how to build and use these tools.
         --build-arg https_proxy=${https_proxy} \
         -t quantization:latest -f Dockerfile .
    ```
+ To build quantization tools based on different `BASE_IMAGE_ORG` or `BASE_IMAGE_TAG`, append below `--build-args` during `docker build`.
 
+>NOTE:
+>The quantization tools build requires bazel version >= `0.19.2` and `Tensorflow`, Please make sure `BASE_IMAGE` already includes those dependencies.
+   ```
+        --build-arg BASE_IMAGE_ORG=<new_base_image_org>
+        --build-arg BASE_IMAGE_TAG=<new_base_image_tag>
+   ```
 ## Start quantization process
   Launch quantization script `launch_quantization.py` by providing args as below,
   this will get user into container environment (`/workspace/tensorflow/`) with quantization tools.
   - `--docker-image`: Docker image tag from above step (`quantization:latest`)
   - `--pre-trained-model-dir`: Path to your pre-trained model directory,
-     which will be mounted inside container at `/workspace/quantization`.
+     which will be mounted inside the container at `/workspace/quantization`. When working in the container, all outputs should be saved to `/workspace/quantization`, so that results are written back to the local machine's `pre-trained-model-dir`. 
   ```
         python launch_quantization.py \
         --docker-image quantization:latest \
         --pre-trained-model-dir /home/<user>/<pre_trained_model_dir>
   ```
-   Please provide the output graphs locations relative to `/workspace/quantization`, so that results are written back to local machine.
 
 ### Steps for FP32 Optimized Frozen Graph
-In this section, we assume that a trained model topology graph (the model graph_def as .pb or .pbtxt file) and the checkpoint files are available.
- * The `model graph_def` is used in `step 1` to get the possible **input and output node names** of the graph.
- * Both of the `model graph_def` and the `checkpoint file` are required in `step 2` to get the **model frozen graph**.
- * The `model frozen graph`, **optimized** (based on the graph structure and operations, etc.) in `step 3`.
+In this section, we assume that you are starting with a trained model in .pb or .pbtxt format. 
+You may have either:
+ 
+ 1. A topology graph (the model [graph_def](https://www.tensorflow.org/guide/extend/model_files#graphdef)) and checkpoint files containing the model weights 
+ 2. A [frozen graph](https://www.tensorflow.org/guide/extend/model_files#freezing) which contains both the model graph and weights
 
-We also assume that you are in the TensorFlow root directory (`/workspace/tensorflow` inside the docker container) to execute the following steps.
+In the first scenario, you should complete steps 1, 2, and 3 below. If you are in the second scenario with a frozen graph, you do not need step 2 and should complete steps 1 and 3 only.
 
-1. Find out the possible input and output node names of the graph
+ * **Step 1**: The `model graph_def` or `model frozen graph` is used to get the possible input and output node names of the graph.
+ * **Step 2 (if there are checkpoints)**: The `model graph_def`, `checkpoint files`, and output node names are used to create the `model frozen graph`.
+ * **Step 3**: The `model frozen graph` and input and output node names are used to generate the `optimized model graph` based on the graph structure and operations, etc.
+
+You should be in the TensorFlow root directory (`/workspace/tensorflow` inside the docker container) to execute the following steps.
+
+1. Find out the possible input and output node names of the graph:
     ```
         $ bazel-bin/tensorflow/tools/graph_transforms/summarize_graph \
          --in_graph=/workspace/quantization/<graph_def_file> \
@@ -53,11 +66,11 @@ We also assume that you are in the TensorFlow root directory (`/workspace/tensor
     ```
     In the model_nodes.txt file, look for the input and output nodes names.
 
-2. Freeze the graph where the checkpoint values are converted into constants in the graph:
-    * The `--input_graph` is the model topology graph_def, and the checkpoint file are required.
+2. If there are checkpoints, freeze the graph. This converts the checkpoint values into constants in the graph:
+    * The `--input_graph` is the model topology graph_def, and the checkpoint files are required.
     * The `--output_node_names` are obtained from step 1.
-    * Please note that the `--input_graph` can be in either binary `pb` or text `pbtxt` format,
-    and the `--input_binary` flag will be enabled or disabled accordingly.
+    * Please note that the `--input_graph` can be in either binary `.pb` or text `.pbtxt` format,
+    and the `--input_binary` flag must be set accordingly (i.e. set this to True for `.pb` inputs and False for `.pbtxt` inputs).
     ```
         $ python tensorflow/python/tools/freeze_graph.py \
          --input_graph /workspace/quantization/<graph_def_file> \
@@ -68,8 +81,8 @@ We also assume that you are in the TensorFlow root directory (`/workspace/tensor
     ```
 
 3. Optimize the model frozen graph:
-    * Set the `--in_graph` to the path of the model frozen graph (from step 2), 
-    * The `--inputs` and `--outputs` are the graph input and output node names (from step 1).
+    * Set the `--in_graph` to the path of the model frozen graph (obtained from step 2 or your original frozen graph if you started with one). 
+    * The `--inputs` and `--outputs` are the graph input and output node names (obtained from step 1).
     * `--transforms` to be set based on the model topology. See the TensorFlow
       [Transform Reference](https://github.com/tensorflow/tensorflow/tree/master/tensorflow/tools/graph_transforms#transform-reference)
       and the [Graph Transforms README](/tensorflow_quantization/graph_transforms/README.md)

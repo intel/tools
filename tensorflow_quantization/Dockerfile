@@ -13,13 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# SPDX-License-Identifier: EPL-2.0
 #
 
-FROM intelaipg/intel-optimized-tensorflow:nightly-latestprs-bdw as binary_build
+FROM gcr.io/deeplearning-platform-release/tf-cpu.1-14 as binary_build
 
-# Using 2.0-aplha, otherwise quantization tools bazel build fails.
-ARG TF_BUILD_VERSION=v2.0.0-alpha0
+# Using "TF_BUILD_VERSION=v1.15.0" if you need tensorflow 1.15.0
+ARG TF_BUILD_VERSION=v1.14.0
+ARG BAZEL_VERSION=0.24.1
 
 ENV WORKSPACE="/workspace"
 ENV TF_WORKSPACE="${WORKSPACE}/tensorflow"
@@ -33,6 +33,10 @@ COPY graph_transforms/* ${TF_WORKSPACE}/tensorflow/tools/graph_transforms/
 
 # Copy quantization scripts
 COPY quantization ${TF_WORKSPACE}/tensorflow/tools/quantization
+
+# upgrade bazel
+RUN wget https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-installer-linux-x86_64.sh
+RUN bash bazel-${BAZEL_VERSION}-installer-linux-x86_64.sh
 
 # Build Graph Transform Tool
 RUN bazel build --strip=never --config=mkl \

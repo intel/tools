@@ -25,7 +25,11 @@ from tensorflow.python.tools.optimize_for_inference_lib import optimize_for_infe
 from tensorflow.tools.graph_transforms import TransformGraph
 from google.protobuf import text_format
 
-from api.quantize_graph import GraphRewriter
+from intel_quantization.quantize_graph import GraphRewriter
+from intel_quantization.transform_graph.freeze_max_min import freeze_max
+from intel_quantization.transform_graph.freeze_max_min import freeze_min
+from intel_quantization.transform_graph.freeze_max_min import freeze_requantization_range
+from intel_quantization.transform_graph.fuse_quantized_conv_and_requantize import fuse_quantized_conv_and_requantize
 
 import os
 import logging
@@ -95,17 +99,11 @@ class GraphConverter:
         """Optimize fp32 frozen graph."""
 
         in_graph_def = self._read_graph(self.input_graph, self.input_graph_binary_flag)
-        # TODO: keep dtypes list order as input list?
         dtypes = []
         for n in in_graph_def.node:
             if n.name in self.inputs:
                 dtypes.append(n.attr["dtype"].type)
         self._fp32_optimized_graph = optimize_for_inference(in_graph_def, self.inputs, self.outputs, dtypes, False)
-
-        # transforms = ['strip_unused_nodes', 'remove_nodes(op=Identity, op=CheckNumerics)',
-        #               'fold_constants(ignore_errors=true)', 'fold_batch_norms', 'fold_old_batch_norms']
-        # self._fp32_optimized_graph = self._transform_graph(
-        #     self._read_graph(self.input_graph, self.input_graph_binary_flag), None, transforms)
 
     def _quantize_graph(self):
         """quantize graph."""
@@ -155,19 +153,23 @@ class GraphConverter:
         os.system(cmd)
 
     def _freeze_requantization_ranges(self):
-        transforms = ['freeze_requantization_ranges(min_max_log_file="{}")'.format(self._requant_min_max_log),
-                      'freeze_min(min_max_log_file="{}")'.format(self._requant_min_max_log),
-                      'freeze_max(min_max_log_file="{}")'.format(self._requant_min_max_log)]
-        self._int8_frozen_range_graph = self._transform_graph(self._int8_dynamic_range_graph,
-                                                              self._int8_frozen_range_graph,
-                                                              transforms)
+        freeze_max_graph = freeze_max(self._int8_dynamic_range_graph, self._requant_min_max_log)
+        freeze_min_graph = freeze_min(freeze_max_graph, self._requant_min_max_log)
+        self._int8_frozen_range_graph = freeze_requantization_range(freeze_min_graph, self._requant_min_max_log)   
 
     def _fuse_requantize_with_fused_quantized_conv(self):
+        fuse_quantized_conv_and_requantize_graph = fuse_quantized_conv_and_requantize(self._int8_frozen_range_graph)
+        # strip_unused_nodes with optimize_for_inference
+        dtypes = []
+        for n in fuse_quantized_conv_and_requantize_graph.node:
+            if n.name in self.inputs:
+                dtypes.append(n.attr["dtype"].type)
+        output_graph_def = optimize_for_inference(fuse_quantized_conv_and_requantize_graph, self.inputs, self.outputs, dtypes, False)
         if not self.output_graph:
             self.output_graph = os.path.join(os.path.dirname(os.path.realpath(self.input_graph)),
                                              'int8_final_fused_graph.pb')
-        transforms = ['fuse_quantized_conv_and_requantize', 'strip_unused_nodes']
-        self._transform_graph(self._int8_frozen_range_graph, self.output_graph, transforms)
+            f = gfile.GFile(self.output_graph, "w")
+            f.write(output_graph_def.SerializeToString())
         logging.info('Converted graph file is saved to: %s', self.output_graph)
 
     def _read_graph(self, in_graph, in_graph_is_binary=True):

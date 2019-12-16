@@ -1,11 +1,16 @@
 # Quantization Python Programming API Examples
 
 Content:
-* [Goal](#goal)
-* [Prerequisites](#prerequisites)
-* [Step-by-step Procedure for ResNet50 Quantization](#step-by-step-procedure-for-resnet50-quantization)
-* [More verified models](#more-verified-models)
-* [Docker support](#docker-support)
+- [Quantization Python Programming API Examples](#quantization-python-programming-api-examples)
+  - [Goal](#goal)
+  - [Prerequisites](#prerequisites)
+  - [Step-by-step Procedure for ResNet-50 Quantization](#step-by-step-procedure-for-resnet-50-quantization)
+  - [More verified models](#more-verified-models)
+    - [MobileNetV1](#mobilenetv1)
+    - [ResNet-101](#resnet-101)
+    - [SSD-MobileNet](#ssd-mobilenet)
+    - [SSD-ResNet34](#ssd-resnet34)
+  - [Docker support](#docker-support)
 
 
 
@@ -22,18 +27,22 @@ This feature is under active development, and more intelligent features will com
 
 
 ## Prerequisites
+* The binariy installed Intel optimizations for TensorFlow 1.14 or 1.15.
+```bash
+$ pip install intel-tensorflow==1.15.0
+```
 
-* TensorFlow build and install from source knowledge are required, as the Quantization Python Programming API extends the transform functions of [Graph Transform Tool](https://github.com/tensorflow/tensorflow/blob/master/tensorflow/tools/graph_transforms/README.md) in TensorFlow.
 * The source release repo of Intel® AI Quantization Tools for TensorFlow.
 ```bash
 $ cd ~
-$ git clone https://github.com/IntelAI/tools.git quantization && cd quantization
-$ export PYTHONPATH=${PYTHONPATH}:${PWD}
+$ git clone https://gitlab.devtools.intel.com/intelai/tools  quantization && cd quantization
+$ git checkout r1.0_alpha_rc
+$ pip install api/bin/intel_quantization-1.0a0-py3-none-any.whl
 ```
 
 
 
-## Step-by-step Procedure for ResNet50 Quantization
+## Step-by-step Procedure for ResNet-50 Quantization
 
 In this section, the frozen pre-trained model and ImageNet dataset will be required for fully automatic quantization. 
 
@@ -51,20 +60,10 @@ $ wget https://zenodo.org/record/2535873/files/resnet50_v1.pb
 
 The TensorFlow models repo provides [scripts and instructions](https://github.com/tensorflow/models/tree/master/research/slim#an-automated-script-for-processing-imagenet-data) to download, process, and convert the ImageNet dataset to the TF records format.
 
-1. Download TensorFlow source, patch Graph Transform Tool and install the TensorFlow.
+
+1. Run demo script
 ```bash
-$ cd ~/
-$ git clone https://github.com/tensorflow/tensorflow.git
-$ cd tensorflow
-$ git checkout v1.14.0
-$ cp ../quantization/tensorflow_quantization/graph_transforms/*  tensorflow/tools/graph_transforms/
-```
-And then [build and install TensorFlow from Source with Intel® MKL](https://software.intel.com/en-us/articles/intel-optimization-for-tensorflow-installation-guide).
-
-
-
-2. Run demo script
-```bash
+$ cd ~/quantization
 $ python api/quantize_model.py \
 --model=resnet50 \
 --model_location=path/to/resnet50_fp32_pretrained_model.pb \
@@ -75,7 +74,7 @@ Check the input parameters of pre-trained model, dataset path to match with your
 
 
 
-3. Performance Evaluation
+2. Performance Evaluation
 
 Finally, verify the quantized model performance:
  * Run inference using the final quantized graph and calculate the model accuracy.
@@ -90,8 +89,74 @@ Finally, verify the quantized model performance:
 
 The following models are also verified:
 
+- [MobileNetV1](#mobilenetv1)
+- [ResNet-101](#resnet-101)
 - [SSD-MobileNet](#ssd-mobilenet)
 - [SSD-ResNet34](#ssd-resnet34)
+
+
+
+### MobileNetV1
+
+Download and extract the checkpoint files for the pretrained MobileNetV1 FP32 model::
+
+```bash
+$ wget http://download.tensorflow.org/models/mobilenet_v1_2018_08_02/mobilenet_v1_1.0_224.tgz
+
+$ tar -xvf mobilenet_v1_1.0_224.tgz
+```
+
+
+
+Follow the [instructions](https://github.com/IntelAI/models/tree/master/benchmarks/image_recognition/tensorflow/mobilenet_v1#int8-inference-instructions) to prepare your int8 accuracy commands to generate the min. and max. ranges for the model calibration.
+
+```python
+_INPUTS = ['image_tensor']
+_OUTPUTS = ['detection_boxes', 'detection_scores', 'num_detections', 'detection_classes']
+
+
+def ssd_mobilenet_callback_cmds():
+    # This command is to execute the inference with small subset of the training dataset, and get the min and max log output.
+
+
+if __name__ == '__main__':
+    c = convert.GraphConverter('path/to/ssd_mobilenet_v1_coco_2018_01_28/frozen_inference_graph.pb', None, _INPUTS, _OUTPUTS, excluded_ops=['ConcatV2'], per_channel=True)
+    c.gen_calib_data_cmds = ssd_mobilenet_callback_cmds()
+    c.convert()
+```
+
+
+
+
+
+### ResNet-101
+
+Download the pretrained model:
+
+```bash
+$ wget https://storage.googleapis.com/intel-optimized-tensorflow/models/v1_5/resnet101_fp32_pretrained_model.pb
+```
+
+
+
+Follow the [instructions](https://github.com/IntelAI/models/tree/master/benchmarks/image_recognition/tensorflow/resnet101#int8-inference-instructions) to prepare your int8 accuracy commands to generate the min. and max. ranges for the model calibration.
+
+```python
+_INPUTS = ['input']
+_OUTPUTS = ['resnet_v1_101/predictions/Reshape_1']
+
+
+def resnet101_callback_cmds():
+    # This command is to execute the inference with small subset of the training dataset, and get the min and max log output.
+
+
+if __name__ == '__main__':
+    c = convert.GraphConverter('path/to/resnet101_fp32_pretrained_model.pb', None, _INPUTS, _OUTPUTS)
+    c.gen_calib_data_cmds = resnet101_callback_cmds()
+    c.convert()
+```
+
+
 
 
 
@@ -115,6 +180,7 @@ _OUTPUTS = ['detection_boxes', 'detection_scores', 'num_detections', 'detection_
 
 def ssd_mobilenet_callback_cmds():
     # This command is to execute the inference with small subset of the training dataset, and get the min and max log output.
+
 
 if __name__ == '__main__':
     c = convert.GraphConverter('path/to/ssd_mobilenet_v1_coco_2018_01_28/frozen_inference_graph.pb', None, _INPUTS, _OUTPUTS, excluded_ops=['ConcatV2'], per_channel=True)

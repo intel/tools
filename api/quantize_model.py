@@ -21,7 +21,7 @@ import argparse
 
 from tensorflow.python.platform import app
 
-import graph_converter as converter
+import intel_quantization.graph_converter as converter
 
 
 def rn50_callback_cmds(data_location):
@@ -51,7 +51,7 @@ def main(_):
         c = converter.GraphConverter(args.model_location, None, ['input'], ['predict'])
         # This command is to execute the inference with small subset of the training dataset, and get the min and max log output.
         c.gen_calib_data_cmds = rn50_callback_cmds(args.data_location)
-    elif args.model == 'resnet50_v1':
+    elif args.model == 'resnet50v1_5':
         c = converter.GraphConverter(args.model_location, None, ['input_tensor'], ['ArgMax', 'softmax_tensor'],
                                      per_channel=True)
         c.gen_calib_data_cmds = rn50v1_5_callback_cmds(args.data_location)
@@ -60,7 +60,7 @@ def main(_):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model', type=str, default='resnet50', help='The model name')
+    parser.add_argument('--model', type=str, choices=['resnet50', 'resnet50v1_5'], help='The model name')
     parser.add_argument('--model_location', type=str, default=None, help='The original fp32 frozen graph')
     parser.add_argument('--data_location', type=str, default=None, help='The dataset in tfrecord format')
     args = parser.parse_args()

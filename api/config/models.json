@@ -1,0 +1,265 @@
+[
+  { 
+    "MODEL_NAME": "resnet50",
+    "LAUNCH_BENCHMARK_PARAMS": {
+      "LAUNCH_BENCHMARK_SCRIPT": "benchmarks/launch_benchmark.py",
+      "LAUNCH_BENCHMARK_CMD": [
+        "--model-name resnet50",
+        "--framework tensorflow",
+        "--precision int8",
+        "--mode inference",
+        "--batch-size 100",
+        "--accuracy-only"
+      ],
+      "IN_GRAPH": "--in-graph {}",
+      "DATA_LOCATION": "--data-location {}"
+    },
+    "QUANTIZE_GRAPH_CONVERTER_PARAMS": {
+      "INPUT_NODE_LIST": [
+        "input"
+      ],
+      "OUTPUT_NODE_LIST": [
+        "predict"
+      ],
+      "EXCLUDED_OPS_LIST": [],
+      "EXCLUDED_NODE_LIST": [],
+      "PER_CHANNEL_FLAG": false
+    }
+  },
+  { 
+    "MODEL_NAME": "resnet50v1_5",
+    "LAUNCH_BENCHMARK_PARAMS": {
+      "LAUNCH_BENCHMARK_SCRIPT": "benchmarks/launch_benchmark.py",
+      "LAUNCH_BENCHMARK_CMD": [
+        "--model-name resnet50v1_5",
+        "--framework tensorflow",
+        "--precision int8",
+        "--mode inference",
+        "--batch-size 100",
+        "--accuracy-only"
+      ],
+      "IN_GRAPH": "--in-graph {}",
+      "DATA_LOCATION": "--data-location {}"
+    },
+    "QUANTIZE_GRAPH_CONVERTER_PARAMS": {
+      "INPUT_NODE_LIST": [
+        "input_tensor"
+      ],
+      "OUTPUT_NODE_LIST": [
+        "ArgMax",
+        "softmax_tensor"
+      ],
+      "EXCLUDED_OPS_LIST": [],
+      "EXCLUDED_NODE_LIST": [],
+      "PER_CHANNEL_FLAG": true
+    }
+  },
+  {
+    "MODEL_NAME": "resnet101",
+    "LAUNCH_BENCHMARK_PARAMS": {
+      "LAUNCH_BENCHMARK_SCRIPT": "benchmarks/launch_benchmark.py",
+      "LAUNCH_BENCHMARK_CMD": [
+        "--model-name resnet101",
+        "--framework tensorflow",
+        "--precision int8",
+        "--mode inference",
+        "--batch-size 100",
+        "--accuracy-only"
+      ],
+      "IN_GRAPH": "--in-graph {}",
+      "DATA_LOCATION": "--data-location {}"
+    },
+    "QUANTIZE_GRAPH_CONVERTER_PARAMS": {
+      "INPUT_NODE_LIST": [
+        "input"
+      ],
+      "OUTPUT_NODE_LIST": [
+        "resnet_v1_101/predictions/Reshape_1"
+      ],
+      "EXCLUDED_OPS_LIST": [],
+      "EXCLUDED_NODE_LIST": [],
+      "PER_CHANNEL_FLAG": false
+    }
+  },
+  {
+    "MODEL_NAME": "mobilenet_v1",
+    "LAUNCH_BENCHMARK_PARAMS": {
+      "LAUNCH_BENCHMARK_SCRIPT": "benchmarks/launch_benchmark.py",
+      "LAUNCH_BENCHMARK_CMD": [
+        "--model-name mobilenet_v1",
+        "--framework tensorflow",
+        "--precision int8",
+        "--mode inference",
+        "--batch-size 100",
+        "--input_height=224 input_width=224 input_layer='input' output_layer='MobilenetV1/Predictions/Reshape_1'",
+        "--accuracy-only"],
+      "IN_GRAPH": "--in-graph {}",
+      "DATA_LOCATION": "--data-location {}"
+    },
+    "QUANTIZE_GRAPH_CONVERTER_PARAMS": {
+      "INPUT_NODE_LIST": [
+        "input"
+      ],
+      "OUTPUT_NODE_LIST": [
+        "MobilenetV1/Predictions/Reshape_1"
+      ],
+      "EXCLUDED_OPS_LIST": [],
+      "EXCLUDED_NODE_LIST": [],
+      "PER_CHANNEL_FLAG":true
+    }
+  },
+  {
+    "MODEL_NAME": "ssd_mobilenet",
+    "LAUNCH_BENCHMARK_PARAMS": {
+      "LAUNCH_BENCHMARK_SCRIPT": "benchmarks/launch_benchmark.py",
+      "LAUNCH_BENCHMARK_CMD": [
+        "--model-name ssd-mobilenet",
+        "--framework tensorflow",
+        "--precision int8",
+        "--mode inference",
+        "--batch-size 1",
+        "--accuracy-only"
+      ],
+      "IN_GRAPH": "--in-graph {}",
+      "DATA_LOCATION": "--data-location {}",
+      "MODEL_SOURCE_DIR": "--model-source-dir {}"
+    },
+    "QUANTIZE_GRAPH_CONVERTER_PARAMS": {
+      "INPUT_NODE_LIST": [
+        "image_tensor"
+      ],
+      "OUTPUT_NODE_LIST": [
+        "detection_boxes",
+        "detection_scores",
+        "num_detections",
+        "detection_classes"
+      ],
+      "EXCLUDED_OPS_LIST": [
+        "ConcatV2"
+      ],
+      "EXCLUDED_NODE_LIST": [],
+      "PER_CHANNEL_FLAG": true
+    }
+  },
+  {
+    "MODEL_NAME": "ssd_resnet34",
+    "LAUNCH_BENCHMARK_PARAMS": {
+      "LAUNCH_BENCHMARK_SCRIPT": "benchmarks/launch_benchmark.py",
+      "LAUNCH_BENCHMARK_CMD": [
+        "--model-name ssd-resnet34",
+        "--framework tensorflow",
+        "--precision int8",
+        "--mode inference",
+        "--batch-size 1",
+        "--accuracy-only"],
+      "IN_GRAPH": "--in-graph {}",
+      "DATA_LOCATION": "--data-location {}",
+      "MODEL_SOURCE_DIR": "--model-source-dir {}"
+    },
+    "QUANTIZE_GRAPH_CONVERTER_PARAMS": {
+      "INPUT_NODE_LIST": [
+        "input"
+      ],
+      "OUTPUT_NODE_LIST": [
+        "v/stack",
+        "v/Softmax"
+      ],
+      "EXCLUDED_OPS_LIST": [
+        "ConcatV2"
+      ],
+      "EXCLUDED_NODE_LIST": [],
+      "PER_CHANNEL_FLAG": false
+    }
+  },
+  {
+    "MODEL_NAME": "faster_rcnn",
+    "LAUNCH_BENCHMARK_PARAMS": {
+      "LAUNCH_BENCHMARK_SCRIPT": "benchmarks/launch_benchmark.py",
+      "LAUNCH_BENCHMARK_CMD": [
+        "--model-name faster_rcnn",
+        "--mode inference",
+        "--precision int8",
+        "--framework tensorflow",
+        "--socket-id 0",
+        "--accuracy-only"
+      ],
+      "IN_GRAPH": "--in-graph {}",
+      "DATA_LOCATION": "--data-location {}",
+      "MODEL_SOURCE_DIR": "--model-source-dir {}"
+    },
+    "QUANTIZE_GRAPH_CONVERTER_PARAMS": {
+      "INPUT_NODE_LIST": [
+        "image_tensor"
+      ],
+      "OUTPUT_NODE_LIST": [
+        "detection_boxes",
+        "detection_scores",
+        "num_detections",
+        "detection_classes"
+      ],
+      "EXCLUDED_OPS_LIST": [],
+      "EXCLUDED_NODE_LIST": [],
+      "PER_CHANNEL_FLAG": false
+    }
+  },
+  {
+    "MODEL_NAME": "rfcn",
+    "LAUNCH_BENCHMARK_PARAMS": {
+      "LAUNCH_BENCHMARK_SCRIPT": "benchmarks/launch_benchmark.py",
+      "LAUNCH_BENCHMARK_CMD": [
+        "--model-name rfcn",
+        "--mode inference",
+        "--precision int8",
+        "--framework tensorflow",
+        "--socket-id 0",
+        "--accuracy-only",
+        "-- split=\"accuracy_message\""
+      ],
+      "IN_GRAPH": "--in-graph {}",
+      "DATA_LOCATION": "--data-location {}",
+      "MODEL_SOURCE_DIR": "--model-source-dir {}"
+    },
+    "QUANTIZE_GRAPH_CONVERTER_PARAMS": {
+      "INPUT_NODE_LIST": [
+        "image_tensor"
+      ],
+      "OUTPUT_NODE_LIST": [
+        "detection_boxes",
+        "detection_scores",
+        "num_detections",
+        "detection_classes"
+      ],
+      "EXCLUDED_OPS_LIST": [],
+      "EXCLUDED_NODE_LIST": [],
+      "PER_CHANNEL_FLAG": false
+    }
+  },
+  {
+    "MODEL_NAME": "inceptionv3",
+    "LAUNCH_BENCHMARK_PARAMS": {
+      "LAUNCH_BENCHMARK_SCRIPT": "benchmarks/launch_benchmark.py",
+      "LAUNCH_BENCHMARK_CMD": [
+        "--model-name inceptionv3",
+        "--mode inference",
+        "--precision int8",
+        "--framework tensorflow",
+        "--batch-size 100",
+        "--socket-id 0",
+        "--accuracy-only"
+      ],
+      "IN_GRAPH": "--in-graph {}",
+      "DATA_LOCATION": "--data-location {}"
+    },
+    "QUANTIZE_GRAPH_CONVERTER_PARAMS": {
+      "INPUT_NODE_LIST": [
+        "input"
+      ],
+      "OUTPUT_NODE_LIST": [
+        "predict"
+      ],
+      "EXCLUDED_OPS_LIST": [],
+      "EXCLUDED_NODE_LIST": [],
+      "PER_CHANNEL_FLAG": false
+    }
+  }
+]

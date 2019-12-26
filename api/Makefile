@@ -15,3 +15,27 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
+
+.PHONY: venv
+
+all: venv
+
+venv:
+	@echo "Creating Python3 virtualenv"
+	@tox -e py3-venv
+
+tox:
+	tox
+
+lint:
+	@echo "Running style checks..."
+	tox -e py3-lint
+
+unit_test:
+	@echo "Running unit tests..."
+	@tox -e py3-unit
+
+test: lint # unit_test
+
+clean:
+	rm -rf .venv .tox

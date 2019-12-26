@@ -529,7 +529,6 @@ class GraphRewriter(object):
         self.output_graph = None
         self.mode = mode
         self.intel_cpu_eightbitize = intel_cpu_eightbitize
-        self.conv_count = 0  # TODO: refactor to remove this counte
         self.pad_fuse_map = {}
         self.per_channel = per_channel
         self.final_node_renames = {}
@@ -1073,7 +1072,7 @@ class GraphRewriter(object):
         else:
             first_input_node_name = node_name_from_input(current_node.input[0])
             input_node = self.nodes_map[first_input_node_name]
-            if input_node.op in ("ConcatV2", "MaxPool", "AvgPool", "Relu", "Relu6", "Pad"):
+            if input_node.op in ("ConcatV2", "MaxPool", "AvgPool", "Relu", "Relu6", "Pad", "CropAndResize"):
                 return self.intel_cpu_find_relu_recursively(input_node)
             else:
                 return False
@@ -1108,15 +1107,7 @@ class GraphRewriter(object):
         if current_node.op in ("Conv2D", "DepthwiseConv2dNative") \
                 and (current_node.op not in self.excluded_ops) \
                 and (current_node.name not in self.excluded_nodes):
-            # TODO (intel-tf): Clean up model-specific code
-            if FLAGS.model_name not in ["FasterRCNN", "R-FCN"]:
-                should_quantize_conv = self.intel_cpu_find_relu_recursively(current_node)
-            else:
-                if self.conv_count in [39]:
-                    should_quantize_conv = False
-                else:
-                    should_quantize_conv = True
-            self.conv_count = self.conv_count + 1
+            should_quantize_conv = self.intel_cpu_find_relu_recursively(current_node)
             # Int8 Pad fusion
             pad_node = self.nodes_map[current_node.input[0]]
             if pad_node.op == "Pad":
@@ -1126,8 +1117,8 @@ class GraphRewriter(object):
         if current_node.op == "ConcatV2" \
                 and (current_node.op not in self.excluded_ops) \
                 and (current_node.name not in self.excluded_nodes):
-            should_quantize_concat = FLAGS.model_name not in [
-                "FasterRCNN", "R-FCN", "wide_deep_large_ds"] and not ('map/while' in current_node.name)
+            if not re.search(r'map(_\d+)?/while', current_node.name):
+                should_quantize_concat = True
 
         # TODO(intel-tf): Clean up model-specific code
         if current_node.op == "MatMul" and FLAGS.model_name in ["wide_deep_large_ds"]:

@@ -165,6 +165,8 @@ Take ResNet-50 as an example.
   - LAUNCH_BENCHMARK_CMD: The parameters to launch int8 accuracy script in Model Zoo.
   - IN_GRAPH: The path of input graph file.
   - DATA_LOCATION: The path of dataset.
+  - MODEL_SOURCE_DIR: The path of tensorflow-models.(optional)
+  - DIRECT_PASS_PARAMS_TO_MODEL: The parameters directly passed to the model.(optional)
 
 - QUANTIZE_GRAPH_CONVERTER_PARAMS
   - INPUT_NODE_LIST: The input nodes name list of the model. You can use [Summarize graph](#summarize-graph) to get the inputs and outputs of the graph.

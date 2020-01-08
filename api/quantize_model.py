@@ -35,6 +35,7 @@ class ModelZooBridge:
     IN_GRAPH = 'IN_GRAPH'
     DATA_LOCATION = 'DATA_LOCATION'
     MODEL_SOURCE_DIR = 'MODEL_SOURCE_DIR'
+    DIRECT_PASS_PARAMS_TO_MODEL = "DIRECT_PASS_PARAMS_TO_MODEL"
 
     QUANTIZE_GRAPH_CONVERTER_PARAMS = 'QUANTIZE_GRAPH_CONVERTER_PARAMS'
     INPUT_NODE_LIST = 'INPUT_NODE_LIST'
@@ -82,7 +83,9 @@ class ModelZooBridge:
         if self.models_source_dir and ModelZooBridge.MODEL_SOURCE_DIR in launch_benchmark_params.keys():
             inference_calib_cmd += ' ' + launch_benchmark_params[ModelZooBridge.MODEL_SOURCE_DIR].format(
                 self.models_source_dir)
-        print('---', inference_calib_cmd)
+        if ModelZooBridge.DIRECT_PASS_PARAMS_TO_MODEL in launch_benchmark_params.keys():
+            inference_calib_cmd += ' ' + ' '.join(launch_benchmark_params[ModelZooBridge.DIRECT_PASS_PARAMS_TO_MODEL])
+        print('Inference Calibration Command: %s' % inference_calib_cmd)
         return inference_calib_cmd
 
     def _quantize_params_dict(self):

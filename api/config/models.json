@@ -212,12 +212,14 @@
         "--precision int8",
         "--framework tensorflow",
         "--socket-id 0",
-        "--accuracy-only",
-        "-- split=\"accuracy_message\""
+        "--accuracy-only"
       ],
       "IN_GRAPH": "--in-graph {}",
       "DATA_LOCATION": "--data-location {}",
-      "MODEL_SOURCE_DIR": "--model-source-dir {}"
+      "MODEL_SOURCE_DIR": "--model-source-dir {}",
+      "DIRECT_PASS_PARAMS_TO_MODEL": [
+        "-- split=\"accuracy_message\""
+      ]
     },
     "QUANTIZE_GRAPH_CONVERTER_PARAMS": {
       "INPUT_NODE_LIST": [

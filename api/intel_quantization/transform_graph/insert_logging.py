@@ -80,7 +80,7 @@ class InsertLogging(GraphTransformBase):
         Insert the Print OP into the graph
         """
         for node_name in self.node_mapping:
-            if node_name not in self.output_name_index_mapping:
+            if node_name not in self.output_name_index_mapping or node_name.find("eightbit") == -1:
                 continue
 
             if self.ops and self.node_mapping[node_name].op in self.ops:
@@ -100,7 +100,6 @@ class InsertLogging(GraphTransformBase):
                 print_node.attr["summarize"].i = self.summarize
 
                 print_node.input.append(node_name + ":0")
-
                 print_node.attr["T"].CopyFrom(
                     attr_value_pb2.AttrValue(type=self.op_output_type_mapping[self.node_mapping[node_name].op][0]))
 

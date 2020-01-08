@@ -116,8 +116,14 @@ def summarize_graph(graph):
     out_nodes_name = []
     placeholders = []
     variables = []
+    op_counts = {}
 
     for node in graph.node:
+        if node.op in op_counts.keys():
+            op_counts[node.op] += 1
+        else:
+            op_counts[node.op] = 1
+
         if node.op == "Placeholder":
             placeholders.append(node)
         if node.op in ["Variable", "VariableV2"]:
@@ -129,7 +135,6 @@ def summarize_graph(graph):
         print("Found ", len(placeholders), " possible inputs: ")
         for node in placeholders:
             in_nodes_name.append(print_node_info(node))
-        print('')
 
     output_map = {}
     outputs = []
@@ -147,7 +152,20 @@ def summarize_graph(graph):
             output_info = "(name=" + node.name + ", op=" + node.op + ")"
             print(output_info)
             out_nodes_name.append(node.name)
-        print('')
+
+    for function in graph.library.function:
+        for node in function.node_def():
+            if node.op in op_counts.keys():
+                op_counts[node.op] += 1
+            else:
+                op_counts[node.op] = 1
+
+    op_counts_vec = sorted(op_counts.items(), key=lambda item: item[1], reverse=True)
+    print("Op types used: ")
+    for v in op_counts_vec:
+        print(v[1], "", v[0], ",", end="")
+    print("")
+
     return in_nodes_name, out_nodes_name
 
 
@@ -188,4 +206,3 @@ def SummarizeGraph(in_graph=None, input_binary=True):
 
 if __name__ == "__main__":
     main()
-

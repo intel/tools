@@ -197,7 +197,41 @@ $ python summarize_graph.py --in_graph=path/to/graph
 ```
 
 
-## Docker support
+## Docker support 
 
 * For docker environment, the procedure is same as above. 
+## Procedure for ResNet-50 Quantization in Docker
+
+* [Docker]( https://docs.docker.com/install/ ) - Latest version.
+
+* Build a docker layer which contains Intel® Optimizations for TensorFlow and Intel® AI Quantization Tools for Tensorflow with the command below. 
+
+  ```bash
+  $ cd ~/quantization/api/docker
+  $ docker build \
+       --build-arg HTTP_PROXY=${HTTP_PROXY} \
+       --build-arg HTTPS_PROXY=${HTTPS_PROXY} \
+       --build-arg http_proxy=${http_proxy} \
+       --build-arg https_proxy=${https_proxy} \
+       -t quantization:latest -f Dockerfile .
+  ```
+
+* Launch quantization script `launch_quantization.py` by providing args as below, this will get user into container environment (`/workspace`) with quantization tools.
+
+  `--docker-image`: Docker image tag from above step (`quantization:latest`).  
+  `--in_graph`: Path to your pre-trained model file, which will be mounted inside the container at `/workspace/pretrained_model`.   
+  `--out_graph`: When working in the container, all outputs should be saved to `/workspace/output`, so that results are written back to the local machine.  
+  `--model_name` and `--models_zoo` are the specific parameters for Model Zoo for Intel® Architecture. If user only want to launch the quantization environment in docker and execute own defined models with `--debug` parameter, both can be skipped. 
+
+  ```bash
+  $ cd ~/quantization/api
+  $ python launch_quantization.py  \
+  --docker-image quantization:latest \
+  --in_graph=/path/to/in_graph.pb \
+  --model_name=resnet50 \
+  --out_graph=/path/to/output.pb \
+  --data_location=/path/to/dataset \
+  --models_zoo=/path/to/models_zoo \
+  ```
+
 

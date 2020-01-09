@@ -35,11 +35,13 @@ from intel_quantization.util import read_graph, write_graph
 import os
 import shlex
 import subprocess
+import sys
 import logging
 
 logging.getLogger().setLevel(level=logging.INFO)
 
 tf.compat.v1.disable_eager_execution()
+
 
 class GraphConverter:
     def __init__(self, input_graph, output_graph, inputs=[], outputs=[], excluded_ops=[], excluded_nodes=[],
@@ -74,10 +76,10 @@ class GraphConverter:
 
     def _check_tf_version(self):
         if not tf.pywrap_tensorflow.IsMklEnabled() or not ('1.14.0' <= tf.__version__ < '2.1.0'):
-            raise ValueError(str('Please install Intel® Optimizations for TensorFlow' 
+            raise ValueError(str('Please install Intel® Optimizations for TensorFlow'
                                  ' or MKL enabled source build TensorFlow'
                                  ' with version >=1.14.0 and <2.1.0'))
-        
+
     def _check_args(self):
         if not gfile.Exists(self.input_graph):
             raise ValueError('Input graph pb file %s does not exist.' % self.input_graph)
@@ -183,7 +185,19 @@ class GraphConverter:
         cmd = self.gen_calib_data_cmds
         cmd = cmd.format(self._int8_logged_graph)
         f = open(self._requant_min_max_log, 'w')
-        subprocess.call(shlex.split(cmd), shell=False, stderr=f)
+        p = subprocess.Popen(shlex.split(cmd), stderr=subprocess.PIPE)
+        try:
+            for line in p.stderr:
+                line_str = line.decode(sys.stdout.encoding)
+                sys.stdout.write(line_str)
+                f.write(line_str)
+            p.communicate()
+        except:
+            p.kill()
+            p.wait()
+            raise
+        if p.poll():
+            raise SystemExit('ERROR generating calibration data, command: \n{}'.format(cmd))
 
     def _freeze_requantization_ranges(self):
         self._tmp_graph_def = freeze_max(self._tmp_graph_def, self._requant_min_max_log)

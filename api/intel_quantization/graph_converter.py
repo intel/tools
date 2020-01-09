@@ -33,6 +33,7 @@ from intel_quantization.transform_graph.rerange_quantized_concat import RerangeQ
 from intel_quantization.util import read_graph, write_graph
 
 import os
+import shlex
 import subprocess
 import logging
 
@@ -181,8 +182,8 @@ class GraphConverter:
     def _generate_calibration_data(self):
         cmd = self.gen_calib_data_cmds
         cmd = cmd.format(self._int8_logged_graph)
-        cmd += ' 2>&1 | tee {}'.format(self._requant_min_max_log)
-        subprocess.call(cmd, shell=True)
+        f = open(self._requant_min_max_log, 'w')
+        subprocess.call(shlex.split(cmd), shell=False, stderr=f)
 
     def _freeze_requantization_ranges(self):
         self._tmp_graph_def = freeze_max(self._tmp_graph_def, self._requant_min_max_log)

@@ -40,7 +40,6 @@ logging.getLogger().setLevel(level=logging.INFO)
 
 tf.compat.v1.disable_eager_execution()
 
-
 class GraphConverter:
     def __init__(self, input_graph, output_graph, inputs=[], outputs=[], excluded_ops=[], excluded_nodes=[],
                  per_channel=False, input_graph_is_binary=True):
@@ -68,9 +67,16 @@ class GraphConverter:
 
         self.gen_calib_data_cmds = None
         self.debug = False
+        self._check_tf_version()
         self._check_args()
         self._gen_tmp_filenames()
 
+    def _check_tf_version(self):
+        if not tf.pywrap_tensorflow.IsMklEnabled() or not ('1.14.0' <= tf.__version__ < '2.1.0'):
+            raise ValueError(str('Please install Intel® Optimizations for TensorFlow' 
+                                 ' or MKL enabled source build TensorFlow'
+                                 ' with version >=1.14.0 and <2.1.0'))
+        
     def _check_args(self):
         if not gfile.Exists(self.input_graph):
             raise ValueError('Input graph pb file %s does not exist.' % self.input_graph)

@@ -102,7 +102,7 @@ class ModelZooBridge:
 
 def main(_):
     # Build the bridge with intel model zoo configuration for inference run
-    config_file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "config/models.json")
+    config_file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../config/models.json")
     model = ModelZooBridge(args.model,
                            args.in_graph,
                            args.data_location,

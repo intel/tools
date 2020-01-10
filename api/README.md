@@ -217,7 +217,7 @@ $ python summarize_graph.py --in_graph=path/to/graph
 
   `--docker-image`: Docker image tag from above step (`quantization:latest`).  
   `--in_graph`: Path to your pre-trained model file, which will be mounted inside the container at `/workspace/pretrained_model`.   
-  `--out_graph`: When working in the container, all outputs should be saved to `/workspace/output`, so that results are written back to the local machine.
+  `--out_graph`: When working in the container, all outputs should be saved to `/workspace/output`, so that results are written back to the local machine.  
   `--debug`:Mount the volume and lauch the docker environment to Bash shell environment for debug purpose.   
   `--model_name` and `--models_zoo` are the specific parameters for Model Zoo for Intel® Architecture. If user only want to launch the quantization environment in docker and execute own defined models with `--debug` parameter, both can be skipped. 
 

@@ -85,7 +85,8 @@ class GraphConverter:
             if not is_supported_version:
                 raise ValueError(str('Please install Intel® Optimizations for TensorFlow'
                                      ' or MKL enabled source build TensorFlow'
-                                     ' with version >=1.14.0 and <2.1.0'))
+                                     ' with version >={} and <={}').format(TF_SUPPORTED_MIN_VERSION,
+                                                                           TF_SUPPORTED_MAX_VERSION))
 
     def _check_args(self):
         if not gfile.Exists(self.input_graph):

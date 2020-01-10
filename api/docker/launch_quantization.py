@@ -164,7 +164,7 @@ class LaunchQuantization():
         workspace = "/workspace"
         data_location = workspace + "/dataset"
         quantization = workspace + "/quantization"
-        in_graph = workspace + "/in_graph.pb"
+        in_graph = workspace + "/pretrained_models/in_graph.pb"
 
         out_graph_dir = workspace + "/output/"
         out_graph = out_graph_dir + os.path.basename(args.out_graph)
@@ -185,7 +185,7 @@ class LaunchQuantization():
                     "--env", "{}={}".format("OUT_GRAPH", out_graph),
                     "--env", "{}={}".format("DATA_LOCATION", data_location),
                     "--env", "{}={}".format("MODELS_ZOO", models_zoo),
-                    "--env", "{}={}".format("models_source_dir", models_source_dir),
+                    "--env", "{}={}".format("MODELS_SOURCE_DIR", models_source_dir),
                     "--env", "{}={}".format("DEBUG", args.intermediate),
                     "--env", "{}={}".format("MODEL_NAME", args.model_name)]
 

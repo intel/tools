@@ -16,7 +16,7 @@
 # limitations under the License.
 #
 
-QUANTIZE_MODEL=${WORKSPACE}/quantization/api/quantize_model.py
+QUANTIZE_MODEL=${WORKSPACE}/quantization/api/examples/quantize_model_zoo.py
 
 if [ -f ${QUANTIZE_MODEL} ]; then
     python ${QUANTIZE_MODEL} \

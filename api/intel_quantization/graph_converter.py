@@ -22,7 +22,6 @@ from tensorflow.python.framework import importer
 from tensorflow.python.framework import ops
 from tensorflow.python.platform import gfile
 from tensorflow.python.tools.optimize_for_inference_lib import optimize_for_inference
-
 from intel_quantization.quantize_graph import GraphRewriter
 from intel_quantization.transform_graph.insert_logging import InsertLogging
 from intel_quantization.transform_graph.freeze_max_min import freeze_max
@@ -42,6 +41,8 @@ logging.getLogger().setLevel(level=logging.INFO)
 
 tf.compat.v1.disable_eager_execution()
 
+TF_SUPPORTED_MAX_VERSION = '2.0.0'
+TF_SUPPORTED_MIN_VERSION = '1.14.0'
 
 class GraphConverter:
     def __init__(self, input_graph, output_graph, inputs=[], outputs=[], excluded_ops=[], excluded_nodes=[],
@@ -75,10 +76,19 @@ class GraphConverter:
         self._gen_tmp_filenames()
 
     def _check_tf_version(self):
-        if not tf.pywrap_tensorflow.IsMklEnabled() or not ('1.14.0' <= tf.__version__ < '2.1.0'):
-            raise ValueError(str('Please install Intel® Optimizations for TensorFlow'
-                                 ' or MKL enabled source build TensorFlow'
-                                 ' with version >=1.14.0 and <2.1.0'))
+        is_supported_version = False
+        try:
+            from tensorflow.python.pywrap_tensorflow import IsMklEnabled
+            if IsMklEnabled() and (TF_SUPPORTED_MIN_VERSION <= tf.__version__ <= TF_SUPPORTED_MAX_VERSION):
+                is_supported_version = True
+        except Exception as e:
+            raise ValueError(e)
+        finally:
+            if not is_supported_version:
+                raise ValueError(str('Please install Intel® Optimizations for TensorFlow'
+                                     ' or MKL enabled source build TensorFlow'
+                                     ' with version >={} and <={}').format(TF_SUPPORTED_MIN_VERSION,
+                                                                           TF_SUPPORTED_MAX_VERSION))
 
     def _check_args(self):
         if not gfile.Exists(self.input_graph):

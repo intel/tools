@@ -25,9 +25,9 @@ import intel_quantization.graph_converter as converter
 
 def main(_):
 
-    print (args.inputs.split(','), args.outputs.split(','), args.output_graph)
+    print(args.inputs.split(','), args.outputs.split(','), args.output_graph)
     if not os.path.exists(args.input_graph):
-        print ("{} doesn't exist!".format(args.input_graph))
+        print("{} doesn't exist!".format(args.input_graph))
         sys.exit(-1)
 
     if args.inputs:
@@ -58,7 +58,7 @@ def main(_):
     if 'input_graph=' in args.callback:
         prefix = args.callback.split('input_graph=')[0]
         postfix = ' '.join(args.callback.split('input_graph=')[-1].split(' ')[1:])
-        callback_cmd = prefix + 'input_graph={} '+ postfix
+        callback_cmd = prefix + 'input_graph={} ' + postfix
     else:
         callback_cmd = args.callback
     qt.gen_calib_data_cmds = args.callback
@@ -72,25 +72,25 @@ if __name__ == '__main__':
         type=str,
         default=None,
         help='The calibration callback command.')
-    
+
     parser.add_argument(
         '--inputs',
         type=str,
         default=None,
         help='The input op names of the graph.')
-    
+
     parser.add_argument(
         '--outputs',
         type=str,
         default=None,
         help='The output op names of the graph.')
-    
+
     parser.add_argument(
         '--input_graph', type=str, default=None, help='The input fp32 graph.')
-    
+
     parser.add_argument(
         '--output_graph', type=str, default=None, help='The quantized graph')
-    
+
     parser.add_argument(
         '--per_channel',
         type=bool,
@@ -108,7 +108,7 @@ if __name__ == '__main__':
         type=str,
         default=None,
         help='The nodes that excluded from quantization.')
-    
+
     parser.add_argument(
         '--debug', type=bool, default=False, help='Debug mode.')
 

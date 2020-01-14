@@ -44,8 +44,8 @@ def get_fuse_index(input_node_map, input_name_list):
         if node_op in conv_op_list and \
                 input_node_map[input_name_list[node_index + 1]].op == "Const" and \
                 input_node_map[input_name_list[node_index + 2]].op == "Const" and \
-                (input_node_map[input_name_list[node_index + 3]].op == "Requantize" or \
-                 input_node_map[input_name_list[node_index + 3]].op == "RequantizePerChannel"):
+                (input_node_map[input_name_list[node_index + 3]].op == "Requantize" or
+                input_node_map[input_name_list[node_index + 3]].op == "RequantizePerChannel"):
             fuse_op_list.append(node_index)
             has_dequantize = False
             for node_input in node.input:
@@ -114,7 +114,7 @@ def generate_output_graph(input_graph_def, input_node_map, fuse_op_list, fuse_op
                 scales = []
                 for i in range(channel_size):
                     scales.append(
-                        255.0 * 127.0 / (max(abs(max_input), abs(min_input)) * \
+                        255.0 * 127.0 / (max(abs(max_input), abs(min_input)) *
                                          max(abs(max_filter_tensor[i]), abs(min_filter_tensor[i]))))
                 int32_bias = []
                 if channel_size > 1:

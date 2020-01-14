@@ -58,7 +58,7 @@ if __name__ == '__main__':
     rn50.convert()
 
     # ResNet50 v1.5 quantization example with weight quantization channel-wise.
-    #rn50v1_5 = converter.GraphConverter(_RN50V1_5_MODEL, _RN50V1_5_OUT_GRAPH,
-     #                                   ['input_tensor'], ['ArgMax', 'softmax_tensor'], True)
-   # rn50v1_5.gen_calib_data_cmds = rn50v1_5_callback_cmds()
-    #rn50v1_5.convert()
+    # rn50v1_5 = converter.GraphConverter(_RN50V1_5_MODEL, _RN50V1_5_OUT_GRAPH,
+    #                                   ['input_tensor'], ['ArgMax', 'softmax_tensor'], True)
+    # rn50v1_5.gen_calib_data_cmds = rn50v1_5_callback_cmds()
+    # rn50v1_5.convert()

@@ -206,7 +206,7 @@ class GraphConverter:
     def _post_clean(self):
         """Delete the temporarily files generated during the quantization process.
 
-        :return: None 
+        :return: None
         """
         if gfile.Exists(self._int8_logged_graph):
             os.remove(self._int8_logged_graph)

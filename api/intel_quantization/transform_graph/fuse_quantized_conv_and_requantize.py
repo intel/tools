@@ -45,7 +45,7 @@ def get_fuse_index(input_node_map, input_name_list):
                 input_node_map[input_name_list[node_index + 1]].op == "Const" and \
                 input_node_map[input_name_list[node_index + 2]].op == "Const" and \
                 (input_node_map[input_name_list[node_index + 3]].op == "Requantize" or
-                input_node_map[input_name_list[node_index + 3]].op == "RequantizePerChannel"):
+                 input_node_map[input_name_list[node_index + 3]].op == "RequantizePerChannel"):
             fuse_op_list.append(node_index)
             has_dequantize = False
             for node_input in node.input:

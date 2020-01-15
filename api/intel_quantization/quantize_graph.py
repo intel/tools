@@ -1396,13 +1396,13 @@ class GraphRewriter(object):
         set_attr_dtype(quantize_input_node, "T", dtype)
 
         if FLAGS.model_name in ["wide_deep_large_ds"]:
-           set_attr_string(quantize_input_node, "mode", b"MIN_FIRST")
+            set_attr_string(quantize_input_node, "mode", b"MIN_FIRST")
         else:
-           set_attr_string(quantize_input_node, "mode",
-                           b"SCALED" if self.intel_cpu_eightbitize else b"MIN_FIRST")
-           set_attr_string(quantize_input_node, "round_mode",
-                           b"HALF_TO_EVEN" if self.intel_cpu_eightbitize
-                           else b"HALF_AWAY_FROM_ZERO")
+            set_attr_string(quantize_input_node, "mode",
+                            b"SCALED" if self.intel_cpu_eightbitize else b"MIN_FIRST")
+            set_attr_string(quantize_input_node, "round_mode",
+                            b"HALF_TO_EVEN" if self.intel_cpu_eightbitize
+                            else b"HALF_AWAY_FROM_ZERO")
         self.add_output_graph_node(quantize_input_node)
         min_output_name = quantize_input_name + ":1"
         max_output_name = quantize_input_name + ":2"

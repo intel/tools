@@ -66,7 +66,7 @@ The TensorFlow models repository provides [scripts and instructions](https://git
 1. Run demo script
 ```bash
 $ cd ~/quantization
-$ python api/quantize_model.py \
+$ python api/examples/quantize_model_zoo.py \
 --model resnet50 \
 --in_graph path/to/resnet50_fp32_pretrained_model.pb \
 --out_graph path/to/output.pb \
@@ -78,7 +78,8 @@ Check the input parameters of pre-trained model, dataset path to match with your
 And then execute the python script, you will get the fully automatic quantization conversion from FP32 to INT8.
 
 
-The other alternative method to execute the quantization by Python Programming APIs is by Python script directly. A [Summarize graph](#summarize-graph) python tool is provided to detect the possible inputs and outputs nodes list of the input .pb graph.
+The other alternative method to execute the quantization by Python Programming APIs is by Python script directly. 
+A template is provided in api/examples/quantize_python.py. The key code is below. 
 
 ```python
 import os
@@ -95,6 +96,7 @@ if __name__ == '__main__':
     rn50.debug = True
     rn50.covert()
 ```
+A [Summarize graph](#summarize-graph) python tool is provided to detect the possible inputs and outputs nodes list of the input .pb graph.
 
 2. Performance Evaluation
 
@@ -104,9 +106,7 @@ Finally, verify the quantized model performance:
  * The quantized INT8 graph accuracy should not drop more than ~0.5-1%.
 
 
-
 Check [Intelai/models](https://github.com/IntelAI/models) repository and [ResNet50 README](https://github.com/IntelAI/models/tree/master/benchmarks/image_recognition/tensorflow/resnet50) for TensorFlow models inference benchmarks with different precisions.
-
 
 
 ## Integration with Model Zoo for Intel Architecture
@@ -197,7 +197,41 @@ $ python summarize_graph.py --in_graph=path/to/graph
 ```
 
 
-## Docker support
+## Docker support 
 
-* For docker environment, the procedure is same as above. 
+* [Docker]( https://docs.docker.com/install/ ) - Latest version.
+
+* Build a docker layer which contains Inteli® Optimizations for TensorFlow and Intel® AI Quantization Tools for Tensorflow with the command below. 
+
+  ```bash
+  $ cd ~/quantization/api/docker
+  $ docker build \
+       --build-arg HTTP_PROXY=${HTTP_PROXY} \
+       --build-arg HTTPS_PROXY=${HTTPS_PROXY} \
+       --build-arg http_proxy=${http_proxy} \
+       --build-arg https_proxy=${https_proxy} \
+       -t quantization:latest -f Dockerfile .
+  ```
+
+* Launch quantization script `launch_quantization.py` by providing args as below, this will get user into container environment (`/workspace`) with quantization tools.
+
+  `--docker-image`: Docker image tag from above step (`quantization:latest`).  
+  `--in_graph`: Path to your pre-trained model file, which will be mounted inside the container at `/workspace/pretrained_model`.   
+  `--out_graph`: When working in the container, all outputs should be saved to `/workspace/output`, so that results are written back to the local machine.  
+  `--debug`:Mount the volume and lauch the docker environment to Bash shell environment for debug purpose.   
+  `--model_name` and `--models_zoo` are the specific parameters for Model Zoo for Intel® Architecture. If user only want to launch the quantization environment in docker and execute own defined models with `--debug` parameter, both can be skipped. 
+
+* Take the ResNet50 of Model Zoo as an example. 
+
+  ```bash
+  $ cd ~/quantization/api
+  $ python launch_quantization.py  \
+  --docker-image quantization:latest \
+  --in_graph=/path/to/in_graph.pb \
+  --model_name=resnet50 \
+  --models_zoo=/path/to/models_zoo \
+  --out_graph=/path/to/output.pb \
+  --data_location=/path/to/dataset
+  ```
+
 

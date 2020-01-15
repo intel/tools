@@ -1,4 +1,4 @@
- #
+#
 #  -*- coding: utf-8 -*-
 #
 #  Copyright (c) 2019 Intel Corporation
@@ -24,6 +24,7 @@ import logging
 
 from tensorflow.core.framework import graph_pb2
 from tensorflow.python.platform import gfile
+
 
 class GraphTransformBase(object):
     def __init__(self, input_pb):

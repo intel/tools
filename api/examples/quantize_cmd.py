@@ -1,7 +1,7 @@
 #
 #  -*- coding: utf-8 -*-
 #
-#  Copyright (c) 2019 Intel Corporation
+#  Copyright (c) 2020 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -50,14 +50,14 @@ def main(_):
     else:
         excluded_nodes = []
 
-    qt = converter.GraphConverter(args.input_graph, args.output_graph,
-                                  inputs, outputs,
-                                  excluded_ops, excluded_nodes,
+    qt = converter.GraphConverter(args.input_graph, args.output_graph, inputs,
+                                  outputs, excluded_ops, excluded_nodes,
                                   args.per_channel)
     qt.debug = args.debug
     if 'input_graph=' in args.callback:
         prefix = args.callback.split('input_graph=')[0]
-        postfix = ' '.join(args.callback.split('input_graph=')[-1].split(' ')[1:])
+        postfix = ' '.join(
+            args.callback.split('input_graph=')[-1].split(' ')[1:])
         callback_cmd = prefix + 'input_graph={} ' + postfix
     else:
         callback_cmd = args.callback

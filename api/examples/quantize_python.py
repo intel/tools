@@ -1,7 +1,7 @@
 #
 #  -*- coding: utf-8 -*-
 #
-#  Copyright (c) 2019 Intel Corporation
+#  Copyright (c) 2020 Intel Corporation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -19,14 +19,16 @@
 import os
 import graph_converter as converter
 
-_RN50_MODEL = os.path.join(os.environ['HOME'], 'tools/api/models/resnet50/resnet50_fp32_pretrained_model.pb')
-_RN50V1_5_MODEL = os.path.join(os.environ['HOME'], 'tools/api/models/resnet50v1_5/resnet50_v1.pb')
-_RN50V1_5_OUT_GRAPH = os.path.join(os.environ['HOME'], 'tools/api/models/resnet50v1_5/int8_graph.pb')
+_RN50_MODEL = os.path.join(
+    os.environ['HOME'],
+    'tools/api/models/resnet50/resnet50_fp32_pretrained_model.pb')
 _DATA_LOC = '/lustre/dataset/tensorflow/imagenet'
 
 
 def rn50_callback_cmds():
-    script = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'models/resnet50/accuracy.py')
+    script = os.path.join(
+        os.path.dirname(os.path.realpath(__file__)),
+        'models/resnet50/accuracy.py')
     # You can set up larger batch_size and num_batches to get better accuracy, more time is needed accordingly.
     # Leave `--input_graph={}` unformatted.
     flags = ' --batch_size=50' + \
@@ -38,27 +40,9 @@ def rn50_callback_cmds():
     return script + flags
 
 
-def rn50v1_5_callback_cmds():
-    script = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                          'models/resnet50v1_5/eval_image_classifier_inference.py')
-    flags = " --batch-size=50" + \
-            " --num-inter-threads=2" + \
-            " --num-intra-threads=28" + \
-            " --input-graph={}" + \
-            " --data-location={}".format(_DATA_LOC) + \
-            " --steps=10"
-    return script + flags
-
-
 if __name__ == '__main__':
     # ResNet50 v1.0 quantization example.
     rn50 = converter.GraphConverter(_RN50_MODEL, None, ['input'], ['predict'])
     # pass an inference script to `gen_calib_data_cmds` to generate calibration data.
     rn50.gen_calib_data_cmds = rn50_callback_cmds()
     rn50.convert()
-
-    # ResNet50 v1.5 quantization example with weight quantization channel-wise.
-    # rn50v1_5 = converter.GraphConverter(_RN50V1_5_MODEL, _RN50V1_5_OUT_GRAPH,
-    #                                   ['input_tensor'], ['ArgMax', 'softmax_tensor'], True)
-    # rn50v1_5.gen_calib_data_cmds = rn50v1_5_callback_cmds()
-    # rn50v1_5.convert()

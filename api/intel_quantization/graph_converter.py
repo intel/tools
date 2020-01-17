@@ -194,10 +194,10 @@ class GraphConverter:
     def _generate_calibration_data(self):
         cmd = self.gen_calib_data_cmds
         cmd = cmd.format(self._int8_logged_graph)
-        f = open(self._requant_min_max_log, 'w')
-        p = subprocess.Popen(shlex.split(cmd), stderr=subprocess.PIPE)
+        f = open(self._requant_min_max_log, 'w', buffering=1)
+        p = subprocess.Popen(shlex.split(cmd), stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
         try:
-            for line in p.stderr:
+            for line in p.stdout:
                 line_str = line.decode(sys.stdout.encoding)
                 sys.stdout.write(line_str)
                 f.write(line_str)

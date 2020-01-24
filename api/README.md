@@ -9,7 +9,7 @@ Content:
   - [Tools](#tools)
     - [Summarize graph](#summarize-graph)
   - [Docker support](#docker-support)
-
+  - [FAQ](#faq)
 
 
 ## Goal
@@ -21,9 +21,7 @@ The Quantization Python programming API is to:
 * Reduce the quantization steps,
 * Seamlessly adapt to inference with Python script.
 
-
 This feature is under active development, and more intelligent features will come in next release.
-
 
 
 ## Prerequisites
@@ -33,8 +31,9 @@ TensorFlow 2.0 is also supported for evaluation.
 
   ```bash
   $ pip install intel-tensorflow==1.15.0
+  $ pip install intel-quantization
   ```
-* The source release repository of Model Zoo for Intel® Architecture, if want to execute the quantization
+* The source release repository of Model Zoo for Intel® Architecture is required, if want to execute the quantization
 of specific models in Model Zoo as examples.
 
   ```bash
@@ -47,9 +46,7 @@ of specific models in Model Zoo as examples.
 
   ```bash
   $ cd ~
-  $ git clone https://gitlab.devtools.intel.com/intelai/tools.git  quantization && cd quantization
-  $ git checkout r1.0_alpha2_rc
-  $ pip install api/bin/intel_quantization-1.0a0-py3-none-any.whl
+  $ https://github.com/IntelAI/tools.git  quantization && cd quantization
   ```
 
 ## Step-by-step Procedure for ResNet-50 Quantization
@@ -64,6 +61,11 @@ The TensorFlow models repository provides [scripts and instructions](https://git
 
 
 1. Run demo script
+
+There are three methods to run the quantization for specific models under `api/examples/`, including bash command for model zoo, bash command for custom model,
+and python programming APIs direct call. 
+
+To quantize the models in Model Zoo for Intel® Architecture, the bash commands for model zoo is an easy method with few input parameters.  
 ```bash
 $ cd ~/quantization
 $ python api/examples/quantize_model_zoo.py \
@@ -78,7 +80,30 @@ Check the input parameters of pre-trained model, dataset path to match with your
 And then execute the python script, you will get the fully automatic quantization conversion from FP32 to INT8.
 
 
-The other alternative method to execute the quantization by Python Programming APIs is by Python script directly. 
+For any custom models that are not supported by Model Zoo for Intel® Architecture, the other bash command `api/examples/quantize_cmd.py` is provided.
+The main difference with model zoo bash command is that user needs to prepare the inference command and pass the string as parameter of callback. And then
+the callback function will execute the temporary INT8 .pb generated in the middle process to output the min and max log information. Therefore, remove 
+the --input_graph parameters and value from the command string for callback function.
+   
+```bash
+$ python api/examples/quantize_cmd.py \ 
+                       --input_graph   path/to/resnet50_fp32_pretrained_model.pb \
+                       --output_graph  path/to/output.pb \
+                       --callback      inference_command_with_small_subset_for_ min_max_log
+                       --inputs 'input'
+                       --outputs 'predict'
+                       --per_channel False
+                       --excluded_ops ''
+                       --excluded_nodes ''
+```
+  `--callback`:The command is to execute the inference with small subset of the training dataset to get the min and max log output.
+  `--inputs`:The input op names of the graph.
+  `--outputs`:The output op names of the grap.
+  `--per_channel`:Enable per-channel or not. The per-channel quantization has a different scale and offset for each convolutional kernel.
+  `--excluded_ops`:The ops list that excluded from quantization.
+  `--excluded_nodes`:The nodes list that excluded from quantization.
+
+The third alternative method to execute the quantization by Python Programming APIs is by Python script directly. 
 A template is provided in api/examples/quantize_python.py. The key code is below. 
 
 ```python
@@ -233,5 +258,25 @@ $ python summarize_graph.py --in_graph=path/to/graph
   --out_graph=/path/to/output.pb \
   --data_location=/path/to/dataset
   ```
+
+## FAQ
+
+* What's the difference with between Quantization Programming APIs and Tensorflow native quantization?
+  
+  The Quantization Programming APIs are specified for Intel® Optimizations for TensorFlow based on the MKLDNN enabled build. This APIs call the Tensorflow Python models as extension,
+  and provide some special fusion rules, such as, fold_convolutionwithbias_mul, fold_subdivmul_batch_norms, fuse_quantized_conv_and_requantize, mkl_fuse_pad_and_conv,
+  rerange_quantized_concat etc. 
+
+* How to build the development environment?
+  
+  For any code contributers, the .whl is easy to be rebuilt to include the specific code for debugging purpose. Refer the build command below.  
+
+  ```bash
+  $ cd ~/quantization/api/
+  $ python setup.py bdist_wheel
+  $ pip install
+  $ pip install dist/*.whl
+  ```
+  
 
 

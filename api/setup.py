@@ -25,7 +25,7 @@ with open(path.join(path.dirname(path.realpath(__file__)), 'README.md'), encodin
 
 setup(
     name='intel-quantization',
-    version='1.0a2',
+    version='1.0b1',
     author='intel',
     description='The Python programming APIs packages for Intel® AI Quantization Tools for Tensorflow*.',
     long_description=long_description,
@@ -33,7 +33,7 @@ setup(
     url='https://github.com/IntelAI/tools',
     packages=find_packages(exclude=['bin', 'config', 'models', 'tests', 'tools']),
     classifiers=[
-        'Development Status :: 1.0 Alpha',
+        'Development Status :: 1.0 Beta',
         'License :: OSI Approbed :: Apache License 2.0',
         'Operating System :: OS Independent',
         'Programming Language :: Python :: 3.4',

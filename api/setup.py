@@ -31,7 +31,7 @@ setup(
     long_description=long_description,
     long_description_content_type='text/markdown',
     url='https://github.com/IntelAI/tools',
-    packages=find_packages(exclude=['bin', 'config', 'models', 'tests', 'tools']),
+    packages=find_packages(exclude=['docker', 'config', 'models', 'tests', 'tools']),
     classifiers=[
         'Development Status :: 1.0 Beta',
         'License :: OSI Approbed :: Apache License 2.0',
@@ -39,7 +39,8 @@ setup(
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
     ],
     keywords='Intel® AI Quantization Tools for Tensorflow*',
-    python_requires='>=3.4, !=3.1.*, !=3.2.*, !=3.3.*, <3.7'
+    python_requires='>=3.4, !=3.1.*, !=3.2.*, !=3.3.*, <3.8'
 )

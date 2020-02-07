@@ -25,7 +25,7 @@ with open(path.join(path.dirname(path.realpath(__file__)), 'README.md'), encodin
 
 setup(
     name='intel-quantization',
-    version='1.0b1',
+    version='1.0b',
     author='intel',
     description='The Python programming APIs packages for Intel® AI Quantization Tools for Tensorflow*.',
     long_description=long_description,

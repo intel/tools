@@ -33,8 +33,8 @@ setup(
     url='https://github.com/IntelAI/tools',
     packages=find_packages(exclude=['docker', 'config', 'models', 'tests', 'tools']),
     classifiers=[
-        'Development Status ::  4 - Beta',
-        'License :: OSI Approbed :: Apache Software License',
+        'Development Status :: 4 - Beta',
+        'License :: OSI Approved :: Apache Software License',
         'Operating System :: OS Independent',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',

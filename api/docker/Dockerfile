@@ -1,29 +1,25 @@
-# Copyright 2017 The TensorFlow Authors. All Rights Reserved.
+#
+# Copyright (c) 2020 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ==============================================================================
+#
+#
 
-"""Utilities for CNN benchmarks."""
+FROM intelaipg/intel-optimized-tensorflow:1.15.0-mkl-py3 as binary_build
 
-import tensorflow as tf
+ENV WORKSPACE="/workspace"
+WORKDIR ${WORKSPACE}
+RUN pip install intel-quantization
 
+CMD ["/bin/bash"]
 
-def tensorflow_version_tuple():
-    v = tf.__version__
-    major, minor, patch = v.split('.')
-    return (int(major), int(minor), patch)
-
-
-def tensorflow_version():
-    vt = tensorflow_version_tuple()
-    return vt[0] * 1000 + vt[1]

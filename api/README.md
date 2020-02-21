@@ -38,8 +38,8 @@ of specific models in Model Zoo as examples.
 
   ```bash
   $ cd ~
-  $ git clone https://gitlab.devtools.intel.com/intelai/models.git models && cd models
-  $ git checkout develop-tf-1.15
+  $ git clone https://github.com/IntelAI/models.git models && cd models
+  $ git checkout v1.5.0
   ```
 
 * The source release repository of Intel® AI Quantization Tools for TensorFlow.

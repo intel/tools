@@ -41,7 +41,7 @@ def get_valid_log(max_min_log):
     with open(max_min_log) as f:
         lines = f.readlines()
     output = []
-    target_lines = [i.strip() for i in lines if i.strip().startswith(';')]
+    target_lines = [i.strip() for i in lines if i.strip().find(';') != -1]
     for i in target_lines:
         semi_count = i.count(';')
         if semi_count == 2:
@@ -52,9 +52,8 @@ def get_valid_log(max_min_log):
             loop_times = int(semi_count / 2)
             semi_index = [index for index, value in enumerate(i) if value == ";"]
             for index in range(loop_times - 1):
-                output.append(i[semi_index[index * 2]: semi_index[index * 2 + 1]])
+                output.append(i[semi_index[index * 2]: semi_index[index * 2 + 2]])
             output.append(i[semi_index[loop_times * 2 - 2]:])
-
     return output
 
 
@@ -114,6 +113,7 @@ def parse_max_min_log(max_min_log, fetch_max=True):
         postfix = "__min:"
 
     lines = get_valid_log(max_min_log)
+
     res = {}
     temp = {}
     for i in lines:
@@ -121,12 +121,11 @@ def parse_max_min_log(max_min_log, fetch_max=True):
             continue
         max_line_data = i.split(';')
         name = max_line_data[1][:-len(print_suffix)]
-        value = max_line_data[-1].split('[')[-1][:-1]
+        value = max_line_data[-1].split('[')[-1].split(']')[0]
         if "eightbit" in name and name not in temp:
             temp[name] = []
         if "eightbit" in name:
             temp[name].append(float(value))
-
     for key in temp:
         target_index = int(len(temp[key]) * 0.95)
         if target_index > len(temp[key]) - 1:

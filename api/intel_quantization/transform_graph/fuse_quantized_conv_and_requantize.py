@@ -28,11 +28,10 @@ from tensorflow.python.framework import dtypes
 
 
 def get_fuse_index(input_node_map, input_name_list):
-    conv_op_list = (
-        "QuantizedConv2DWithBiasAndRelu",
-        "QuantizedDepthwiseConv2DWithBiasAndRelu",
-        "QuantizedConv2DWithBias",
-        "QuantizedConv2DWithBiasSumAndRelu")
+    conv_op_list = ("QuantizedConv2DWithBiasAndRelu",
+                    "QuantizedDepthwiseConv2DWithBiasAndRelu",
+                    "QuantizedConv2DWithBias",
+                    "QuantizedConv2DWithBiasSumAndRelu")
     fuse_op_list = []
     fuse_op_with_sum_list = []
     fuse_op_with_sum_deq_list = []
@@ -49,7 +48,8 @@ def get_fuse_index(input_node_map, input_name_list):
             fuse_op_list.append(node_index)
             has_dequantize = False
             for node_input in node.input:
-                if node_input in input_node_map and input_node_map[node_input].op == "Dequantize":
+                if node_input in input_node_map and input_node_map[
+                        node_input].op == "Dequantize":
                     has_dequantize = True
                     break
 
@@ -61,7 +61,8 @@ def get_fuse_index(input_node_map, input_name_list):
     return fuse_op_with_sum_list, fuse_op_with_sum_deq_list
 
 
-def generate_output_graph(input_graph_def, input_node_map, fuse_op_list, fuse_op_deq_list):
+def generate_output_graph(input_graph_def, input_node_map, fuse_op_list,
+                          fuse_op_deq_list):
     output_graph_def = graph_pb2.GraphDef()
     skip_list = []
     skip_node_name = []
@@ -98,18 +99,26 @@ def generate_output_graph(input_graph_def, input_node_map, fuse_op_list, fuse_op
 
                 min_input = (min_input_node.attr['value'].tensor.float_val)[0]
                 max_input = (max_input_node.attr['value'].tensor.float_val)[0]
-                if input_node_map[new_node.input[0]].op == "RequantizePerChannel":
-                    channel_size = max_filter.attr['value'].tensor.tensor_shape.dim[0].size
-                    max_filter_tensor = tensor_util.MakeNdarray(max_filter.attr['value'].tensor)
-                    min_filter_tensor = tensor_util.MakeNdarray(min_filter.attr['value'].tensor)
+                if 'Depthwise' in node.op or input_node_map[
+                        new_node.input[0]].op == "RequantizePerChannel":
+                    channel_size = max_filter.attr[
+                        'value'].tensor.tensor_shape.dim[0].size
+                    max_filter_tensor = tensor_util.MakeNdarray(
+                        max_filter.attr['value'].tensor)
+                    min_filter_tensor = tensor_util.MakeNdarray(
+                        min_filter.attr['value'].tensor)
                 else:
+
                     channel_size = 1
                     max_filter_tensor = []
                     min_filter_tensor = []
-                    max_filter_tensor.append((max_filter.attr['value'].tensor.float_val)[0])
-                    min_filter_tensor.append((min_filter.attr['value'].tensor.float_val)[0])
+                    max_filter_tensor.append(
+                        (max_filter.attr['value'].tensor.float_val)[0])
+                    min_filter_tensor.append(
+                        (min_filter.attr['value'].tensor.float_val)[0])
 
-                bias_tensor = tensor_util.MakeNdarray(input_node_map[new_node.input[2]].attr['value'].tensor)
+                bias_tensor = tensor_util.MakeNdarray(
+                    input_node_map[new_node.input[2]].attr['value'].tensor)
                 bias_length = bias_tensor.shape[0]
                 scales = []
                 for i in range(channel_size):
@@ -123,31 +132,40 @@ def generate_output_graph(input_graph_def, input_node_map, fuse_op_list, fuse_op
                 else:
                     for i in range(bias_length):
                         int32_bias.append((int)(bias_tensor[i] * scales[0]))
-                bias_node.attr['dtype'].CopyFrom(attr_value_pb2.AttrValue(type=qint32_type))
-                bias_node.attr['value'].CopyFrom(attr_value_pb2.AttrValue(
-                    tensor=tensor_util.make_tensor_proto(int32_bias, dtypes.int32, bias_tensor.shape)))
+                bias_node.attr['dtype'].CopyFrom(
+                    attr_value_pb2.AttrValue(type=qint32_type))
+                bias_node.attr['value'].CopyFrom(
+                    attr_value_pb2.AttrValue(
+                        tensor=tensor_util.make_tensor_proto(
+                            int32_bias, dtypes.int32, bias_tensor.shape)))
 
                 bias_node.attr['value'].tensor.dtype = qint32_type
                 skip_node_name.append(bias_node.name)
                 output_graph_def.node.extend([bias_node])
-                new_node.attr["Tbias"].CopyFrom(attr_value_pb2.AttrValue(type=qint32_type))
+                new_node.attr["Tbias"].CopyFrom(
+                    attr_value_pb2.AttrValue(type=qint32_type))
             else:
-                new_node.attr["Tbias"].CopyFrom(attr_value_pb2.AttrValue(type=float32_type))
+                new_node.attr["Tbias"].CopyFrom(
+                    attr_value_pb2.AttrValue(type=float32_type))
 
             if "padding_list" in node.attr:
-                new_node.attr["padding_list"].CopyFrom(node.attr['padding_list'])
+                new_node.attr["padding_list"].CopyFrom(
+                    node.attr['padding_list'])
             if "dilations" in node.attr:
                 new_node.attr["dilations"].CopyFrom(node.attr['dilations'])
 
             if node.op == "QuantizedConv2D" or node.op == "QuantizedConv2DWithBias":
-                new_node.attr["out_type"].CopyFrom(attr_value_pb2.AttrValue(type=int8_type))
+                new_node.attr["out_type"].CopyFrom(
+                    attr_value_pb2.AttrValue(type=int8_type))
             else:
-                new_node.attr["out_type"].CopyFrom(attr_value_pb2.AttrValue(type=uint8_type))
+                new_node.attr["out_type"].CopyFrom(
+                    attr_value_pb2.AttrValue(type=uint8_type))
 
             skip_list.append(index + 1)
             skip_list.append(index + 2)
             skip_list.append(index + 3)
-            output_graph_def.node.extend([new_node, const_node_1, const_node_2])
+            output_graph_def.node.extend(
+                [new_node, const_node_1, const_node_2])
         elif index in skip_list or node.name in skip_node_name:
             continue
         elif node.op == "Dequantize":
@@ -156,15 +174,18 @@ def generate_output_graph(input_graph_def, input_node_map, fuse_op_list, fuse_op
             new_node.attr["mode"].s = b"SCALED"
             p_node = input_node_map[new_node.input[0]]
             pp_node = input_node_map[p_node.name].input[0]
-            if input_node_map[pp_node].op.find("Relu") != -1 or \
-                    input_node_map[pp_node].op.find("Requantize") != -1 or \
-                    p_node.op in ("QuantizedAvgPool", "QuantizedMaxPool", "QuantizedConcatV2"):
-                new_node.attr["T"].CopyFrom(attr_value_pb2.AttrValue(type=uint8_type))
+            if input_node_map[pp_node].op.find("Relu") != -1 or p_node.op in (
+                    "QuantizedAvgPool", "QuantizedMaxPool",
+                    "QuantizedConcatV2"):
+                new_node.attr["T"].CopyFrom(
+                    attr_value_pb2.AttrValue(type=uint8_type))
             else:
-                new_node.attr["T"].CopyFrom(attr_value_pb2.AttrValue(type=int8_type))
+                new_node.attr["T"].CopyFrom(
+                    attr_value_pb2.AttrValue(type=int8_type))
             output_graph_def.node.extend([new_node])
         elif index in fuse_op_deq_list:
-            original_summand_node = input_node_map[input_graph_def.node[index].input[-1]]
+            original_summand_node = input_node_map[
+                input_graph_def.node[index].input[-1]]
             sum_const_node_1 = input_graph_def.node[index + 1]
             sum_const_node_2 = input_graph_def.node[index + 2]
             sum_requantize_node = input_graph_def.node[index + 3]
@@ -177,12 +198,17 @@ def generate_output_graph(input_graph_def, input_node_map, fuse_op_list, fuse_op
                 new_node.input.append(value)
             new_node.input.append(sum_const_node_1.name)
             new_node.input.append(sum_const_node_2.name)
-            new_node.input.append(input_node_map[original_summand_node.name].input[0])
-            new_node.input.append(input_node_map[original_summand_node.name].input[0] + ":1")
-            new_node.input.append(input_node_map[original_summand_node.name].input[0] + ":2")
+            new_node.input.append(
+                input_node_map[original_summand_node.name].input[0])
+            new_node.input.append(
+                input_node_map[original_summand_node.name].input[0] + ":1")
+            new_node.input.append(
+                input_node_map[original_summand_node.name].input[0] + ":2")
 
-            update_summand_node = input_node_map[original_summand_node.name].input[0]
-            original_node = input_node_map[input_node_map[update_summand_node].input[0]].name
+            update_summand_node = input_node_map[
+                original_summand_node.name].input[0]
+            original_node = input_node_map[
+                input_node_map[update_summand_node].input[0]].name
 
             # skip_list.append(index + 1)
             # skip_list.append(index + 2)
@@ -203,24 +229,32 @@ def generate_output_graph(input_graph_def, input_node_map, fuse_op_list, fuse_op
 
                 min_input = (min_input_node.attr['value'].tensor.float_val)[0]
                 max_input = (max_input_node.attr['value'].tensor.float_val)[0]
-                if input_node_map[new_node.input[0]].op == "RequantizePerChannel":
-                    channel_size = max_filter.attr['value'].tensor.tensor_shape.dim[0].size
-                    max_filter_tensor = tensor_util.MakeNdarray(max_filter.attr['value'].tensor)
-                    min_filter_tensor = tensor_util.MakeNdarray(min_filter.attr['value'].tensor)
+                if input_node_map[
+                        new_node.input[0]].op == "RequantizePerChannel":
+                    channel_size = max_filter.attr[
+                        'value'].tensor.tensor_shape.dim[0].size
+                    max_filter_tensor = tensor_util.MakeNdarray(
+                        max_filter.attr['value'].tensor)
+                    min_filter_tensor = tensor_util.MakeNdarray(
+                        min_filter.attr['value'].tensor)
                 else:
                     channel_size = 1
                     max_filter_tensor = []
                     min_filter_tensor = []
-                    max_filter_tensor.append((max_filter.attr['value'].tensor.float_val)[0])
-                    min_filter_tensor.append((min_filter.attr['value'].tensor.float_val)[0])
+                    max_filter_tensor.append(
+                        (max_filter.attr['value'].tensor.float_val)[0])
+                    min_filter_tensor.append(
+                        (min_filter.attr['value'].tensor.float_val)[0])
 
-                bias_tensor = (tensor_util.MakeNdarray(input_node_map[new_node.input[2]].attr['value'].tensor))
+                bias_tensor = (tensor_util.MakeNdarray(
+                    input_node_map[new_node.input[2]].attr['value'].tensor))
                 bias_length = bias_tensor.shape[0]
                 scales = []
                 for i in range(channel_size):
-                    scales.append(
-                        255.0 * 127.0 / (max(abs(max_input), abs(min_input)) * max(abs(max_filter_tensor[i]),
-                                                                                   abs(min_filter_tensor[i]))))
+                    scales.append(255.0 * 127.0 /
+                                  (max(abs(max_input), abs(min_input)) *
+                                   max(abs(max_filter_tensor[i]),
+                                       abs(min_filter_tensor[i]))))
                 int32_bias = []
                 if channel_size > 1:
                     for i in range(bias_length):
@@ -228,30 +262,41 @@ def generate_output_graph(input_graph_def, input_node_map, fuse_op_list, fuse_op
                 else:
                     for i in range(bias_length):
                         int32_bias.append(int(bias_tensor[i] * scales[0]))
-                bias_node.attr['dtype'].CopyFrom(attr_value_pb2.AttrValue(type=qint32_type))
-                bias_node.attr['value'].CopyFrom(attr_value_pb2.AttrValue(
-                    tensor=tensor_util.make_tensor_proto(int32_bias, dtypes.int32, bias_tensor.shape)))
+                bias_node.attr['dtype'].CopyFrom(
+                    attr_value_pb2.AttrValue(type=qint32_type))
+                bias_node.attr['value'].CopyFrom(
+                    attr_value_pb2.AttrValue(
+                        tensor=tensor_util.make_tensor_proto(
+                            int32_bias, dtypes.int32, bias_tensor.shape)))
                 bias_node.attr['value'].tensor.dtype = qint32_type
-                new_node.attr["Tbias"].CopyFrom(attr_value_pb2.AttrValue(type=qint32_type))
+                new_node.attr["Tbias"].CopyFrom(
+                    attr_value_pb2.AttrValue(type=qint32_type))
                 skip_node_name.append(bias_node.name)
                 output_graph_def.node.extend([bias_node])
             else:
-                new_node.attr["Tbias"].CopyFrom(attr_value_pb2.AttrValue(type=float32_type))
+                new_node.attr["Tbias"].CopyFrom(
+                    attr_value_pb2.AttrValue(type=float32_type))
 
             if "padding_list" in node.attr:
-                new_node.attr["padding_list"].CopyFrom(node.attr['padding_list'])
+                new_node.attr["padding_list"].CopyFrom(
+                    node.attr['padding_list'])
             if "dilations" in node.attr:
                 new_node.attr["dilations"].CopyFrom(node.attr['dilations'])
 
-            new_node.attr["out_type"].CopyFrom(attr_value_pb2.AttrValue(type=uint8_type))
+            new_node.attr["out_type"].CopyFrom(
+                attr_value_pb2.AttrValue(type=uint8_type))
             if input_node_map[original_node].op == "QuantizeV2":
-                new_node.attr["Tsummand"].CopyFrom(input_node_map[original_node].attr["T"])
+                new_node.attr["Tsummand"].CopyFrom(
+                    input_node_map[original_node].attr["T"])
             elif input_node_map[original_node].op == "Requantize":
-                new_node.attr["Tsummand"].CopyFrom(attr_value_pb2.AttrValue(type=uint8_type))
+                new_node.attr["Tsummand"].CopyFrom(
+                    attr_value_pb2.AttrValue(type=uint8_type))
             elif input_node_map[original_node].op.find("Relu") != -1:
-                new_node.attr["Tsummand"].CopyFrom(attr_value_pb2.AttrValue(type=uint8_type))
+                new_node.attr["Tsummand"].CopyFrom(
+                    attr_value_pb2.AttrValue(type=uint8_type))
             else:
-                new_node.attr["Tsummand"].CopyFrom(attr_value_pb2.AttrValue(type=int8_type))
+                new_node.attr["Tsummand"].CopyFrom(
+                    attr_value_pb2.AttrValue(type=int8_type))
                 new_node.op = "QuantizedConv2DWithBiasSignedSumAndReluAndRequantize"
             output_graph_def.node.extend([new_node])
         else:
@@ -284,5 +329,7 @@ def parse_input_graph(input_graph_def):
 
 def fuse_quantized_conv_and_requantize(input_graph):
     input_node_map, _, node_name_list = parse_input_graph(input_graph)
-    fuse_op_list, fuse_op_deq_list = get_fuse_index(input_node_map, node_name_list)
-    return generate_output_graph(input_graph, input_node_map, fuse_op_list, fuse_op_deq_list)
+    fuse_op_list, fuse_op_deq_list = get_fuse_index(input_node_map,
+                                                    node_name_list)
+    return generate_output_graph(input_graph, input_node_map, fuse_op_list,
+                                 fuse_op_deq_list)

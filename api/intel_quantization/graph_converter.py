@@ -21,16 +21,21 @@ from tensorflow.core.framework import graph_pb2
 from tensorflow.python.framework import importer
 from tensorflow.python.framework import ops
 from tensorflow.python.platform import gfile
-from tensorflow.python.tools.optimize_for_inference_lib import optimize_for_inference
-from intel_quantization.quantize_graph import GraphRewriter
+from tensorflow.python.framework import graph_util
+# from tensorflow.python.tools.optimize_for_inference_lib import optimize_for_inference
+
+# from intel_quantization.quantize_graph import GraphRewriter
+from intel_quantization.transform_graph.strip_unused import StripUnusedNodes
+from intel_quantization.transform_graph.fold_batch_norm import FoldBatchNormNodes
 from intel_quantization.transform_graph.insert_logging import InsertLogging
 from intel_quantization.transform_graph.freeze_max_min import freeze_max
 from intel_quantization.transform_graph.freeze_max_min import freeze_min
 from intel_quantization.transform_graph.freeze_max_min import freeze_requantization_range
 from intel_quantization.transform_graph.fuse_quantized_conv_and_requantize import fuse_quantized_conv_and_requantize
+from intel_quantization.transform_graph.fuse_column_wise_mul import FuseColumnWiseMul
 from intel_quantization.transform_graph.rerange_quantized_concat import RerangeQuantizedConcat
 from intel_quantization.util import read_graph, write_graph
-
+from intel_quantization.quantize_graph.quantize_graph_for_intel_cpu import QuantizeGraphForIntel
 import os
 import shlex
 import subprocess
@@ -41,8 +46,9 @@ logging.getLogger().setLevel(level=logging.INFO)
 
 tf.compat.v1.disable_eager_execution()
 
-TF_SUPPORTED_MAX_VERSION = '2.0.0'
+TF_SUPPORTED_MAX_VERSION = '2.1.0'
 TF_SUPPORTED_MIN_VERSION = '1.14.0'
+
 
 class GraphConverter:
     def __init__(self, input_graph, output_graph, inputs=[], outputs=[], excluded_ops=[], excluded_nodes=[],
@@ -78,7 +84,11 @@ class GraphConverter:
     def _check_tf_version(self):
         is_supported_version = False
         try:
-            from tensorflow.python.pywrap_tensorflow import IsMklEnabled
+            from tensorflow import python
+            if (hasattr(python, "pywrap_tensorflow") and hasattr(python.pywrap_tensorflow, "IsMklEnabled")):
+                from tensorflow.python.pywrap_tensorflow import IsMklEnabled
+            else:
+                from tensorflow.python._pywrap_util_port import IsMklEnabled
             if IsMklEnabled() and (TF_SUPPORTED_MIN_VERSION <= tf.__version__ <= TF_SUPPORTED_MAX_VERSION):
                 is_supported_version = True
         except Exception as e:
@@ -156,7 +166,11 @@ class GraphConverter:
 
         self._tmp_graph_def = read_graph(self.input_graph, self.input_graph_binary_flag)
         dtypes = self._get_dtypes(self._tmp_graph_def)
-        self._tmp_graph_def = optimize_for_inference(self._tmp_graph_def, self.inputs, self.outputs, dtypes, False)
+        # self._tmp_graph_def = optimize_for_inference(self._tmp_graph_def, self.inputs, self.outputs, dtypes, False)
+        self._tmp_graph_def = FuseColumnWiseMul(self._tmp_graph_def).do_transformation()
+        self._tmp_graph_def = StripUnusedNodes(self._tmp_graph_def, self.inputs, self.outputs, dtypes).do_transform()
+        self._tmp_graph_def = graph_util.remove_training_nodes(self._tmp_graph_def, self.outputs)
+        self._tmp_graph_def = FoldBatchNormNodes(self._tmp_graph_def).do_transform()
         write_graph(self._tmp_graph_def, self._fp32_optimized_graph)
 
     def _quantize_graph(self):
@@ -169,14 +183,12 @@ class GraphConverter:
         with g.as_default():
             importer.import_graph_def(self._tmp_graph_def)
 
-        rewriter = GraphRewriter(input_graph=self._tmp_graph_def,
-                                 mode=self._low_precision_mode,
-                                 quantized_input_range=None,
-                                 intel_cpu_eightbitize=True,
-                                 excluded_ops=self.excluded_ops,
-                                 excluded_nodes=self.excluded_nodes,
-                                 per_channel=self.per_channel)
-        self._tmp_graph_def = rewriter.rewrite(self.outputs)
+        intel_quantizer = QuantizeGraphForIntel(self._tmp_graph_def,
+                                                self.outputs, self.per_channel,
+                                                excluded_ops=self.excluded_ops,
+                                                excluded_nodes=self.excluded_nodes)
+        self._tmp_graph_def = intel_quantizer.do_transform()
+
         if self.debug:
             write_graph(self._tmp_graph_def, self._int8_dynamic_range_graph)
 
@@ -202,7 +214,7 @@ class GraphConverter:
                 sys.stdout.write(line_str)
                 f.write(line_str)
             p.communicate()
-        except:
+        except Exception:
             p.kill()
             p.wait()
             raise
@@ -220,7 +232,10 @@ class GraphConverter:
         self._tmp_graph_def = fuse_quantized_conv_and_requantize(self._tmp_graph_def)
         # strip_unused_nodes with optimize_for_inference
         dtypes = self._get_dtypes(self._tmp_graph_def)
-        self._tmp_graph_def = optimize_for_inference(self._tmp_graph_def, self.inputs, self.outputs, dtypes, False)
+        # self._tmp_graph_def = optimize_for_inference(self._tmp_graph_def, self.inputs, self.outputs, dtypes, False)
+        self._tmp_graph_def = StripUnusedNodes(self._tmp_graph_def, self.inputs, self.outputs, dtypes).do_transform()
+        self._tmp_graph_def = graph_util.remove_training_nodes(self._tmp_graph_def, self.outputs)
+        self._tmp_graph_def = FoldBatchNormNodes(self._tmp_graph_def).do_transform()
         RerangeQuantizedConcat(self._tmp_graph_def).do_transformation()
         write_graph(self._tmp_graph_def, self.output_graph)
         logging.info('Converted graph file is saved to: %s', self.output_graph)

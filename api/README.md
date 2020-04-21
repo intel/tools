@@ -26,11 +26,11 @@ This feature is under active development, and more intelligent features will com
 
 ## Prerequisites
 
-* The binary installed Intel® optimizations for TensorFlow 1.14 or 1.15 are preferred. The Intel® optimizations for 
+* The binary installed Intel® optimizations for TensorFlow 1.15 or 2.1 are preferred. The Intel® optimizations for 
 TensorFlow 2.0 is also supported for evaluation. 
 
   ```bash
-  $ pip install intel-tensorflow==1.15.0
+  $ pip install intel-tensorflow==1.15.2
   $ pip install intel-quantization
   ```
 * The source release repository of Model Zoo for Intel® Architecture is required, if want to execute the quantization
@@ -46,7 +46,7 @@ of specific models in Model Zoo as examples.
 
   ```bash
   $ cd ~
-  $ https://github.com/IntelAI/tools.git  quantization && cd quantization
+  $ git clone https://github.com/IntelAI/tools.git  quantization && cd quantization
   ```
 
 ## Step-by-step Procedure for ResNet-50 Quantization

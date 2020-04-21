@@ -34,7 +34,7 @@ setup(
     packages=find_packages(exclude=['docker', 'config', 'models', 'tests', 'tools']),
     classifiers=[
         'Development Status :: 5 - Production/Stable',
-        'License :: OSI Approbed :: Apache License 2.0',
+        'License :: OSI Approved :: Apache Software License',
         'Operating System :: OS Independent',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',

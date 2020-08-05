@@ -3,8 +3,8 @@ from tensorflow.core.framework import graph_pb2
 from tensorflow.core.framework import node_def_pb2
 from tensorflow.python.framework import dtypes
 
-from intel_quantization.quantize_graph.quantize_graph_common import QuantizeGraphHelper as helper
-from intel_quantization.quantize_graph.quantize_graph_base import QuantizeNodeBase
+from .quantize_graph_common import QuantizeGraphHelper as helper
+from .quantize_graph_base import QuantizeNodeBase
 
 import logging
 
@@ -232,7 +232,7 @@ class FuseNodeStartWithConv2d(QuantizeNodeBase):
                 helper.set_attr_dtype(quantized_conv_node, "out_type",
                                       dtypes.qint32)
                 self.add_output_graph_node(quantized_conv_node)
-                requantize_type = dtypes.qint8 if self.per_channel else dtypes.quint8
+                requantize_type = dtypes.qint8
 
                 quantize_down_name = self._add_quantize_down_nodes(
                     node, quantized_node_name, requantize_type, False)

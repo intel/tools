@@ -3,13 +3,13 @@ from tensorflow.core.framework import graph_pb2
 from tensorflow.python.platform import gfile
 from tensorflow.python.framework import graph_util
 
-from intel_quantization.quantize_graph.quantize_graph_base import QuantizeGraphBase
-from intel_quantization.quantize_graph.quantize_graph_common import QuantizeGraphHelper
-from intel_quantization.quantize_graph.quantize_graph_conv import FuseNodeStartWithConv2d
-from intel_quantization.quantize_graph.quantize_graph_concatv2 import FuseNodeStartWithConcatV2
-from intel_quantization.quantize_graph.quantize_graph_matmul import FuseNodeStartWithMatmul
-from intel_quantization.quantize_graph.quantize_graph_pooling import FuseNodeStartWithPooling
-from intel_quantization.quantize_graph.quantize_graph_pad import FuseNodeStartWithPad
+from .quantize_graph_base import QuantizeGraphBase
+from .quantize_graph_common import QuantizeGraphHelper
+from .quantize_graph_conv import FuseNodeStartWithConv2d
+from .quantize_graph_concatv2 import FuseNodeStartWithConcatV2
+from .quantize_graph_matmul import FuseNodeStartWithMatmul
+from .quantize_graph_pooling import FuseNodeStartWithPooling
+from .quantize_graph_pad import FuseNodeStartWithPad
 
 
 class QuantizeGraphForIntel(QuantizeGraphBase):

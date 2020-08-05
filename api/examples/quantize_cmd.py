@@ -41,12 +41,12 @@ def main(_):
         outputs = []
 
     if args.excluded_ops:
-        excluded_ops = args.exclude_ops.split(',')
+        excluded_ops = args.excluded_ops.split(',')
     else:
         excluded_ops = []
 
     if args.excluded_nodes:
-        excluded_nodes = args.exclude_nodes.split(',')
+        excluded_nodes = args.excluded_nodes.split(',')
     else:
         excluded_nodes = []
 
@@ -61,7 +61,7 @@ def main(_):
         callback_cmd = prefix + 'input_graph={} ' + postfix
     else:
         callback_cmd = args.callback
-    qt.gen_calib_data_cmds = args.callback
+    qt.gen_calib_data_cmds = callback_cmd
     qt.convert()
 
 

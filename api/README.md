@@ -46,7 +46,7 @@ of specific models in Model Zoo as examples.
 
   ```bash
   $ cd ~
-  $ git clone https://github.com/IntelAI/tools.git  quantization && cd quantization
+  $ git clone https://github.com/IntelAI/tools.git quantization && cd quantization
   ```
 
 ## Step-by-step Procedure for ResNet-50 Quantization

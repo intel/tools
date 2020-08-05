@@ -19,13 +19,13 @@
 from os import path
 from setuptools import find_packages
 from setuptools import setup
-
+import intel_quantization
 with open(path.join(path.dirname(path.realpath(__file__)), 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
     name='intel-quantization',
-    version='1.0',
+    version=intel_quantization.__version__,
     author='intel',
     description='The Python programming APIs packages for Intel® AI Quantization Tools for Tensorflow*.',
     long_description=long_description,

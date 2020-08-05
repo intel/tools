@@ -28,7 +28,7 @@ from tensorflow.core.framework import graph_pb2
 from tensorflow.core.framework import node_def_pb2
 from tensorflow.python.framework import tensor_util
 from tensorflow.python.platform import tf_logging
-from intel_quantization.transform_graph.graph_transform_base import GraphTransformBase
+from .graph_transform_base import GraphTransformBase
 
 
 class FoldBatchNormNodes(GraphTransformBase):
@@ -38,12 +38,15 @@ class FoldBatchNormNodes(GraphTransformBase):
         ["conv_op", "mean_op", "var_op", "beta_op", "gamma_op"],
         # Order of inputs for FusedBatchNorm.
         "FusedBatchNorm":
+        ["conv_op", "gamma_op", "beta_op", "mean_op", "var_op"],
+        "FusedBatchNormV3":
         ["conv_op", "gamma_op", "beta_op", "mean_op", "var_op"]
     }
     # Name of the attribute epsilon value is stored in.
     EPSILON_ATTR = {
         "BatchNormWithGlobalNormalization": "variance_epsilon",
-        "FusedBatchNorm": "epsilon"
+        "FusedBatchNorm": "epsilon",
+        "FusedBatchNormV3": "epsilon"
     }
 
     def __init__(self, input_graph_def):
@@ -137,7 +140,7 @@ class FoldBatchNormNodes(GraphTransformBase):
         new_ops = []
         for node in self.input_graph.node:
             if node.op not in ("BatchNormWithGlobalNormalization",
-                               "FusedBatchNorm"):
+                               "FusedBatchNorm", "FusedBatchNormV3"):
                 continue
 
             conv_op = self.node_from_map(

@@ -25,7 +25,7 @@ from tensorflow.python.framework import tensor_util
 from tensorflow.core.framework import attr_value_pb2
 from tensorflow.core.framework import node_def_pb2
 from tensorflow.python.framework import dtypes
-from intel_quantization.transform_graph.graph_transform_base import GraphTransformBase
+from .graph_transform_base import GraphTransformBase
 
 
 class FuseColumnWiseMul(GraphTransformBase):
@@ -106,7 +106,7 @@ class FuseColumnWiseMul(GraphTransformBase):
                 if len(mul_value_node_tensor.tensor_shape.dim
                        ) != 1 or mul_value_node_tensor.tensor_shape.dim[
                            0].size != weights_col:
-                    print ("Invalid Mul OP fusion.")
+                    print("Invalid Mul OP fusion.")
 
                 mul_value_node_list = [
                     i for i in tensor_util.MakeNdarray(

@@ -1,3 +1,6 @@
+:warning: **This repo has been migrated to https://github.com/intel/lp-opt-tool**
+==============================================
+
 # Intel® AI Quantization Tools for Tensorflow*
 
 > Note:Intel® AI Quantization Tools for Tensorflow* must depend on Intel® Optimizations for TensorFlow.
